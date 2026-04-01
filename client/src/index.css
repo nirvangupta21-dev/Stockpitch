@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark fintech palette — deep navy/slate surfaces, electric cyan accent */
+    --background: 222 20% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 185 80% 50%;
+    --primary-foreground: 222 20% 7%;
+
+    --secondary: 220 15% 16%;
+    --secondary-foreground: 210 15% 75%;
+
+    --muted: 220 15% 14%;
+    --muted-foreground: 210 10% 50%;
+
+    --accent: 185 80% 50%;
+    --accent-foreground: 222 20% 7%;
+
+    --destructive: 0 62% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 14%;
+    --ring: 185 80% 50%;
+
+    --radius: 0.5rem;
+
+    /* Custom tokens */
+    --color-up: 142 71% 45%;
+    --color-down: 0 72% 51%;
+    --color-up-bg: 142 71% 45% / 0.12;
+    --color-down-bg: 0 72% 51% / 0.12;
+    --color-cyan: 185 80% 50%;
+    --color-cyan-dim: 185 60% 35%;
+    --color-surface-1: 220 18% 10%;
+    --color-surface-2: 220 16% 13%;
+    --color-surface-3: 220 15% 16%;
+    --color-border: 220 15% 18%;
+    --color-text: 210 20% 92%;
+    --color-text-muted: 210 10% 55%;
+    --color-text-faint: 210 8% 35%;
+    --font-display: 'Cabinet Grotesk', 'Inter', sans-serif;
+    --font-body: 'Satoshi', 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--background)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+/* Chart container */
+.recharts-tooltip-wrapper { z-index: 100; }
+
+/* Number formatting */
+.tabular-nums { font-variant-numeric: tabular-nums lining-nums; }
+
+/* Glow effects */
+.glow-cyan {
+  box-shadow: 0 0 20px hsl(185 80% 50% / 0.15), 0 0 40px hsl(185 80% 50% / 0.08);
+}
+
+.glow-green {
+  box-shadow: 0 0 16px hsl(142 71% 45% / 0.2);
+}
+
+.glow-red {
+  box-shadow: 0 0 16px hsl(0 72% 51% / 0.2);
+}
+
+/* Gradient border card */
+.card-gradient-border {
+  position: relative;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, hsl(220 18% 10%), hsl(220 15% 12%));
+}
+
+.card-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  padding: 1px;
+  background: linear-gradient(135deg, hsl(185 80% 50% / 0.3), hsl(220 15% 20% / 0.1));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Prediction line animation */
+@keyframes dash-draw {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+
+.prediction-line {
+  animation: dash-draw 1.2s ease-out forwards;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--secondary)) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+
+/* Ticker tape */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-tape {
+  animation: ticker-scroll 30s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+.ticker-tape:hover {
+  animation-play-state: paused;
+}

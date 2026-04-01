@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pitchstock
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+    healthCheckPath: /api/quote/AAPL
