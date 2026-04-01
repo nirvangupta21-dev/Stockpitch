@@ -1,8 +1,13 @@
 # ── Stage 1: Build frontend ──────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Install Node deps
+# Install build tools needed for native modules like better-sqlite3
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node deps (compiles native modules for linux/amd64)
 COPY package*.json ./
 RUN npm ci
 
@@ -14,9 +19,10 @@ RUN npm run build
 FROM node:20-slim AS runtime
 WORKDIR /app
 
-# Install Python + pip for yfinance microservice
+# Install Python + build tools for native modules + yfinance
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Create venv and install yfinance
@@ -24,7 +30,7 @@ RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 RUN pip install --no-cache-dir yfinance
 
-# Copy built artifacts and server
+# Copy built artifacts, node_modules (with compiled natives), and server
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
