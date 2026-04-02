@@ -443,14 +443,121 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // Fundamentals for fair value — proxies to Python yfinance microservice on port 5001
+  // Fundamentals for fair value
+  // Tries Python yfinance first (most data), falls back to Yahoo v7 quote API
   app.get("/api/fundamentals/:ticker", async (req, res) => {
     try {
       const { ticker } = req.params;
-      const pyRes = await fetch(`http://127.0.0.1:5001/?ticker=${ticker.toUpperCase()}`);
-      if (!pyRes.ok) return res.status(404).json({ message: "Fundamentals not available" });
-      const data = await pyRes.json();
-      if (data.error) return res.status(404).json({ message: data.error });
+
+      // Try Python yfinance microservice first
+      let data: any = null;
+      try {
+        const pyRes = await fetch(`http://127.0.0.1:5001/?ticker=${ticker.toUpperCase()}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (pyRes.ok) {
+          const pyData = await pyRes.json();
+          if (!pyData.error && pyData.revenue !== undefined) {
+            data = pyData;
+          }
+        }
+      } catch { /* Python service unavailable, fall through */ }
+
+      // Fallback: Yahoo Finance v7 quote API (no auth needed)
+      if (!data) {
+        const fields = [
+          "trailingPE","forwardPE","priceToBook","bookValue",
+          "profitMargins","grossMargins","operatingMargins",
+          "returnOnEquity","returnOnAssets",
+          "freeCashflow","operatingCashflow",
+          "totalRevenue","ebitda","netIncomeToCommon",
+          "revenueGrowth","earningsGrowth",
+          "enterpriseValue","enterpriseToEbitda","enterpriseToRevenue",
+          "beta","sharesOutstanding","floatShares",
+          "dividendYield","trailingAnnualDividendYield",
+          "targetMeanPrice","targetMedianPrice","targetHighPrice","targetLowPrice",
+          "recommendationMean",
+        ].join(",");
+
+        const v7Url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker.toUpperCase()}&fields=${fields}`;
+        const v7Res = await fetch(v7Url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+            "Referer": "https://finance.yahoo.com",
+            "Origin": "https://finance.yahoo.com",
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+
+        if (v7Res.ok) {
+          const v7Data = await v7Res.json();
+          const q = v7Data?.quoteResponse?.result?.[0];
+          if (q) {
+            data = {
+              trailingPE: q.trailingPE ?? null,
+              forwardPE: q.forwardPE ?? null,
+              priceToBook: q.priceToBook ?? null,
+              bookValuePerShare: q.bookValue ?? null,
+              netMargin: q.profitMargins ?? null,
+              grossMargin: q.grossMargins ?? null,
+              operatingMargin: q.operatingMargins ?? null,
+              returnOnEquity: q.returnOnEquity ?? null,
+              returnOnAssets: q.returnOnAssets ?? null,
+              freeCashFlow: q.freeCashflow ?? null,
+              operatingCashFlow: q.operatingCashflow ?? null,
+              revenue: q.totalRevenue ?? null,
+              ebitda: q.ebitda ?? null,
+              netIncome: q.netIncomeToCommon ?? null,
+              revenueGrowthTTM: q.revenueGrowth ?? null,
+              earningsGrowthTTM: q.earningsGrowth ?? null,
+              enterpriseValue: q.enterpriseValue ?? null,
+              evToEbitda: q.enterpriseToEbitda ?? null,
+              evToRevenue: q.enterpriseToRevenue ?? null,
+              beta: q.beta ?? null,
+              sharesOutstanding: q.sharesOutstanding ?? q.floatShares ?? null,
+              dividendYield: q.dividendYield ?? q.trailingAnnualDividendYield ?? null,
+              targetMeanPrice: q.targetMeanPrice ?? null,
+              targetMedianPrice: q.targetMedianPrice ?? null,
+              targetHighPrice: q.targetHighPrice ?? null,
+              targetLowPrice: q.targetLowPrice ?? null,
+              recommendationMean: q.recommendationMean ?? null,
+              revenueGrowthForward: null,
+              earningsGrowthForward: null,
+            };
+          }
+        }
+      }
+
+      // Last resort: derive what we can from the v8 chart API
+      if (!data) {
+        const chartRes = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker.toUpperCase()}?interval=1d&range=1d`,
+          { headers: { "User-Agent": "Mozilla/5.0" } }
+        );
+        if (chartRes.ok) {
+          const chartData = await chartRes.json();
+          const meta = chartData?.chart?.result?.[0]?.meta || {};
+          // Return minimal data — better than nothing
+          data = {
+            trailingPE: null, forwardPE: null, priceToBook: null,
+            netMargin: null, grossMargin: null, operatingMargin: null,
+            returnOnEquity: null, freeCashFlow: null, revenue: null,
+            ebitda: null, netIncome: null, beta: meta.beta ?? null,
+            sharesOutstanding: null, enterpriseValue: null,
+            evToEbitda: null, evToRevenue: null,
+            targetMeanPrice: null, targetMedianPrice: null,
+            targetHighPrice: meta.fiftyTwoWeekHigh ?? null,
+            targetLowPrice: meta.fiftyTwoWeekLow ?? null,
+            dividendYield: null, revenueGrowthTTM: null,
+            earningsGrowthTTM: null, revenueGrowthForward: null,
+            earningsGrowthForward: null, recommendationMean: null,
+            bookValuePerShare: null, operatingCashFlow: null,
+          };
+        }
+      }
+
+      if (!data) return res.status(404).json({ message: "Fundamentals not available for this ticker" });
       res.json(data);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
