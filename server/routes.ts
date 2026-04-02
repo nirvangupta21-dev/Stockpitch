@@ -561,6 +561,100 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // ─── AI Assistant ──────────────────────────────────────────────────────────
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { messages, ticker, context: stockContext } = req.body;
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ message: "messages array required" });
+      }
+
+      const SYSTEM_PROMPT = `You are an expert investment research assistant embedded in PitchStock, a stock analysis platform for NYSE and NASDAQ equities.
+
+Your role is to:
+- Help users understand stocks, financial metrics, valuation models, and market dynamics
+- Explain concepts like P/E ratios, DCF models, EV/EBITDA, beta, volatility, free cash flow, and more
+- Help users think through investment theses — both long and short
+- Analyze trading blocs, FTAs, geopolitical risks, and macroeconomic trends as they relate to markets
+- Discuss sector trends, competitive positioning, and company fundamentals
+- Help structure pitch presentations for investors
+
+Critical rules you MUST follow:
+1. ALWAYS end every single response with this exact disclaimer on its own line: "⚠️ This is for research and informational purposes only. This does not constitute financial advice. Please conduct your own due diligence and consult a licensed financial advisor before making any investment decisions."
+2. Never tell a user to buy or sell a specific stock directly
+3. Never promise returns or guarantee outcomes
+4. If asked for direct investment advice, redirect to analysis and frameworks instead
+5. Be factual, balanced, and present both bull and bear cases when discussing specific stocks
+6. Keep responses concise and structured — use bullet points and headers where helpful
+
+${stockContext ? `Current stock context from the platform:
+${stockContext}` : ""}`;
+
+      // Try OpenAI first, fall back to a simple response if no API key
+      const apiKey = process.env.OPENAI_API_KEY;
+
+      if (!apiKey) {
+        // Fallback: rule-based responses when no API key configured
+        const lastMsg = messages[messages.length - 1]?.content?.toLowerCase() || "";
+        let reply = "I can help you analyze stocks, explain financial metrics, discuss investment theses, and explore market dynamics. What would you like to explore?";
+
+        if (lastMsg.includes("p/e") || lastMsg.includes("price to earnings")) {
+          reply = "**Price-to-Earnings (P/E) Ratio**\n\nThe P/E ratio measures how much investors pay per dollar of earnings. A high P/E suggests growth expectations; a low P/E may indicate undervaluation or slow growth.\n\n- **Trailing P/E**: Based on past 12 months of earnings\n- **Forward P/E**: Based on estimated future earnings\n- **Sector context matters**: Tech trades at 25-35x, utilities at 15-18x\n\nAlways compare P/E to sector peers, not the market broadly.";
+        } else if (lastMsg.includes("dcf") || lastMsg.includes("discounted cash flow")) {
+          reply = "**DCF (Discounted Cash Flow) Valuation**\n\nDCF estimates intrinsic value by projecting future free cash flows and discounting them to present value using a discount rate (WACC).\n\nKey inputs:\n- **Free Cash Flow growth rate** (years 1-5)\n- **Terminal growth rate** (long-run, typically 2-3%)\n- **WACC** (cost of capital, typically 8-12%)\n\nThe Fair Value tab in PitchStock runs a live DCF — try adjusting the sliders to stress-test assumptions.";
+        } else if (lastMsg.includes("short") || lastMsg.includes("shorting")) {
+          reply = "**Short Selling Basics**\n\nShorting involves borrowing shares, selling them, and buying back at a lower price to profit from a decline.\n\nKey short thesis elements:\n- Deteriorating fundamentals (declining margins, revenue miss)\n- Overvaluation vs. peers (high P/S, P/E relative to growth)\n- Competitive moat erosion\n- Regulatory or legal overhang\n- Insider selling or high short interest already\n\nRisks: Unlimited downside if wrong, short squeeze potential.";
+        } else if (lastMsg.includes("volatility") || lastMsg.includes("beta")) {
+          reply = "**Volatility & Beta**\n\n**Beta** measures a stock's sensitivity to market moves:\n- Beta > 1: More volatile than the market\n- Beta < 1: Less volatile\n- Beta = 1: Moves with the market\n\n**Volatility** in PitchStock is calculated as the 52-week high-low range as a % of current price — useful for identifying high-risk/high-reward setups.";
+        }
+
+        return res.json({
+          role: "assistant",
+          content: reply + "\n\n⚠️ This is for research and informational purposes only. This does not constitute financial advice. Please conduct your own due diligence and consult a licensed financial advisor before making any investment decisions.",
+          model: "rule-based",
+        });
+      }
+
+      // OpenAI API call
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...messages.slice(-12), // keep last 12 messages for context
+          ],
+          max_tokens: 1000,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || "OpenAI API error");
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
+
+      // Ensure disclaimer is always present
+      const disclaimer = "\n\n⚠️ This is for research and informational purposes only. This does not constitute financial advice. Please conduct your own due diligence and consult a licensed financial advisor before making any investment decisions.";
+      const finalReply = reply.includes("research and informational purposes") ? reply : reply + disclaimer;
+
+      res.json({
+        role: "assistant",
+        content: finalReply,
+        model: data.model,
+      });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // Watchlist routes
   app.get("/api/watchlist", (_req, res) => {
     res.json(storage.getWatchlist());
