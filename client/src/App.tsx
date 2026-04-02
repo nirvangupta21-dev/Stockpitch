@@ -9,20 +9,18 @@ import FairValue from "./pages/FairValue";
 import News from "./pages/News";
 import StockExplorer from "./pages/StockExplorer";
 import Settings from "./pages/Settings";
-import AIAssistant from "./pages/AIAssistant";
 import { SettingsProvider } from "./lib/settings";
-import { TrendingUp, Scale, Globe, List, Settings2, Bot } from "lucide-react";
+import { TrendingUp, Scale, Globe, List, Settings2 } from "lucide-react";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard",    icon: TrendingUp },
   { id: "fairvalue", label: "Fair Value",   icon: Scale },
   { id: "explorer",  label: "Stocks",       icon: List },
   { id: "news",      label: "News & Events",icon: Globe },
-  { id: "ai",        label: "AI Advisor",   icon: Bot },
   { id: "settings",  label: "My Portfolio", icon: Settings2 },
 ];
 
-type TabId = "dashboard" | "fairvalue" | "explorer" | "news" | "ai" | "settings";
+type TabId = "dashboard" | "fairvalue" | "explorer" | "news" | "settings";
 
 function AppInner() {
   const [tab, setTab]       = useState<TabId>("dashboard");
@@ -78,7 +76,6 @@ function AppInner() {
           <StockExplorer onSelectTicker={t => { setTicker(t); setTab("dashboard"); }} />
         )}
         {tab === "news"      && <News />}
-        {tab === "ai"        && <AIAssistant ticker={ticker} />}
         {tab === "settings"  && <Settings />}
       </main>
 
