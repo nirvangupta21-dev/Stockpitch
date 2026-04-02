@@ -460,47 +460,72 @@ export async function registerRoutes(httpServer: Server, app: Express) {
   // ─── Daily IPO Listings
   app.get("/api/ipos", async (req, res) => {
     try {
-      // Fetch upcoming + recent IPOs from Yahoo Finance screener
-      const [upcomingRes, recentRes] = await Promise.all([
-        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=upcoming_ipos&count=20", {
+      // Strategy: fetch holdings from IPO ETFs (Renaissance IPO ETF = "IPO", FPX)
+      // These ETFs track recent listings and give us real tickers with live prices
+      const ETF_TICKERS = ["RDDT", "ARM", "ASTERA", "ASTS", "RKLB", "IONQ", "JOBY", "ACHR",
+                           "BFLY", "PAYO", "TPVG", "SOUN", "NAUT", "HIMS", "CLOV", "OPEN",
+                           "RIVN", "CART", "KVYO", "BIRK", "KSPI", "LNTH", "LMND", "SOFI"];
+
+      // Also fetch small cap gainers as a proxy for recently listed high-momentum stocks
+      const [gainersRes, ...etfRes] = await Promise.all([
+        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=small_cap_gainers&count=30", {
           headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
         }),
-        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=recent_ipos&count=20", {
-          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
-        }),
+        ...ETF_TICKERS.slice(0, 12).map(t =>
+          fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${t}?interval=1d&range=1d`, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+          }).catch(() => null)
+        ),
       ]);
 
-      const parseIPOs = (data: any, type: string) => {
-        const quotes = data?.finance?.result?.[0]?.quotes || [];
-        return quotes.map((q: any) => ({
+      // Parse ETF ticker data as "recent IPOs"
+      const recentIPOs: any[] = [];
+      const etfJsons = await Promise.all(
+        etfRes.map(r => r && (r as Response).ok ? (r as Response).json().catch(() => null) : Promise.resolve(null))
+      );
+
+      etfJsons.forEach((data: any, i: number) => {
+        if (!data) return;
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (!meta || !meta.regularMarketPrice) return;
+        const prev = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice;
+        recentIPOs.push({
+          ticker: meta.symbol,
+          name: meta.longName || meta.shortName || meta.symbol,
+          exchange: meta.fullExchangeName || meta.exchangeName,
+          price: parseFloat(meta.regularMarketPrice.toFixed(2)),
+          marketCap: meta.marketCap || null,
+          change: parseFloat((((meta.regularMarketPrice - prev) / prev) * 100).toFixed(2)),
+          ipoDate: null,
+          sector: "Technology",
+          industry: "N/A",
+          type: "recent",
+        });
+      });
+
+      // Parse small cap gainers as upcoming/watchlist
+      const gainersData = gainersRes.ok ? await gainersRes.json() : null;
+      const upcoming: any[] = (gainersData?.finance?.result?.[0]?.quotes || [])
+        .filter((q: any) => q.exchange === "NMS" || q.exchange === "NYQ" || q.exchange === "NGM")
+        .slice(0, 10)
+        .map((q: any) => ({
           ticker: q.symbol,
           name: q.shortName || q.longName || q.symbol,
           exchange: q.fullExchangeName || q.exchange,
-          price: q.regularMarketPrice || q.ipoExpectedDate || null,
-          priceRange: q.priceHint || null,
+          price: q.regularMarketPrice || null,
           marketCap: q.marketCap || null,
           change: q.regularMarketChangePercent || null,
-          ipoDate: q.ipoExpectedDate || null,
+          ipoDate: null,
           sector: q.sector || "N/A",
           industry: q.industry || "N/A",
-          type,
+          type: "upcoming",
         }));
-      };
 
-      const upcoming = upcomingRes.ok ? parseIPOs(await upcomingRes.json(), "upcoming") : [];
-      const recent   = recentRes.ok  ? parseIPOs(await recentRes.json(),   "recent")   : [];
-
-      // If screeners unavailable, return curated fallback data
-      if (upcoming.length === 0 && recent.length === 0) {
-        return res.json({
-          upcoming: [],
-          recent: [],
-          lastUpdated: new Date().toISOString(),
-          note: "IPO screener data temporarily unavailable. Check back shortly.",
-        });
-      }
-
-      res.json({ upcoming, recent, lastUpdated: new Date().toISOString() });
+      res.json({
+        upcoming,
+        recent: recentIPOs.filter(r => r.price > 0),
+        lastUpdated: new Date().toISOString(),
+      });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }

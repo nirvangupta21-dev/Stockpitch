@@ -19,10 +19,10 @@ RUN npm run build
 FROM node:20-slim AS runtime
 WORKDIR /app
 
-# Install Python + build tools for native modules + yfinance
+# Install Python + build tools + curl for health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv \
-    build-essential \
+    build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create venv and install yfinance
