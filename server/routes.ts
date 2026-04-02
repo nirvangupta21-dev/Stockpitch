@@ -457,6 +457,55 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // ─── Daily IPO Listings
+  app.get("/api/ipos", async (req, res) => {
+    try {
+      // Fetch upcoming + recent IPOs from Yahoo Finance screener
+      const [upcomingRes, recentRes] = await Promise.all([
+        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=upcoming_ipos&count=20", {
+          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+        }),
+        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=recent_ipos&count=20", {
+          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+        }),
+      ]);
+
+      const parseIPOs = (data: any, type: string) => {
+        const quotes = data?.finance?.result?.[0]?.quotes || [];
+        return quotes.map((q: any) => ({
+          ticker: q.symbol,
+          name: q.shortName || q.longName || q.symbol,
+          exchange: q.fullExchangeName || q.exchange,
+          price: q.regularMarketPrice || q.ipoExpectedDate || null,
+          priceRange: q.priceHint || null,
+          marketCap: q.marketCap || null,
+          change: q.regularMarketChangePercent || null,
+          ipoDate: q.ipoExpectedDate || null,
+          sector: q.sector || "N/A",
+          industry: q.industry || "N/A",
+          type,
+        }));
+      };
+
+      const upcoming = upcomingRes.ok ? parseIPOs(await upcomingRes.json(), "upcoming") : [];
+      const recent   = recentRes.ok  ? parseIPOs(await recentRes.json(),   "recent")   : [];
+
+      // If screeners unavailable, return curated fallback data
+      if (upcoming.length === 0 && recent.length === 0) {
+        return res.json({
+          upcoming: [],
+          recent: [],
+          lastUpdated: new Date().toISOString(),
+          note: "IPO screener data temporarily unavailable. Check back shortly.",
+        });
+      }
+
+      res.json({ upcoming, recent, lastUpdated: new Date().toISOString() });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // ─── Stock Explorer ───────────────────────────────────────────────────────
   app.get("/api/explorer", async (req, res) => {
     try {
