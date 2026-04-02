@@ -1,4 +1,4 @@
-# PitchStock — Investor Intelligence Platform
+# Veridian — Investor Intelligence Platform
 
 A full-stack stock analysis platform for building and pitching investment theses.
 NYSE & NASDAQ equities · $1B+ market cap · Live data via Yahoo Finance.

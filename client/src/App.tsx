@@ -40,7 +40,7 @@ function AppInner() {
           <div className="flex items-center gap-3 shrink-0">
             <Logo />
             <span className="hidden lg:block text-xs text-muted-foreground font-medium tracking-widest uppercase">
-              NYSE &amp; NASDAQ · $1B+
+              Investment Research
             </span>
           </div>
 
@@ -83,8 +83,9 @@ function AppInner() {
       </main>
 
       <footer className="border-t border-border/30 mt-12 py-6 px-6 text-center text-xs text-muted-foreground">
-        <p>PitchStock — For informational purposes only. Not financial advice.</p>
-        <p className="mt-1 opacity-60">Data sourced from Yahoo Finance. Valuations are models, not guarantees.</p>
+        <p className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>Veridian</p>
+        <p className="mt-0.5 opacity-70">Investment Research Platform · For informational purposes only · Not financial advice</p>
+        <p className="mt-1 opacity-40">Data sourced from Yahoo Finance. Valuations are models, not guarantees.</p>
       </footer>
 
       <Toaster />

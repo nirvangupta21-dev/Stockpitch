@@ -519,11 +519,11 @@ export default function Settings() {
       { "Field": "Total Cost Basis", "Value": `$${totalCost.toFixed(2)}` },
       { "Field": "Total Gain/Loss", "Value": `${totalGain >= 0 ? "+" : ""}$${totalGain.toFixed(2)}` },
       { "Field": "Return %", "Value": `${fmtPct(totalGainPct)}` },
-      { "Field": "Data Source", "Value": "PitchStock / Yahoo Finance" },
+      { "Field": "Data Source", "Value": "Veridian / Yahoo Finance" },
     ]);
     XLSX.utils.book_append_sheet(wb, meta, "Summary");
 
-    XLSX.writeFile(wb, `PitchStock_Portfolio_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `Veridian_Portfolio_${new Date().toISOString().split("T")[0]}.xlsx`);
   }
 
   function handleSaveSettings() {
@@ -803,7 +803,7 @@ export default function Settings() {
       <div className="rounded-xl bg-card border border-border/50 p-5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-muted-foreground">
           {[
-            { label: "Platform", value: "PitchStock v1.0" },
+            { label: "Platform", value: "Veridian v1.0" },
             { label: "Data Source", value: "Yahoo Finance" },
             { label: "Market Coverage", value: "NYSE & NASDAQ" },
             { label: "Min Market Cap", value: "$1B+" },

@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "description": "Investor Intelligence Platform — NYSE & NASDAQ stock analysis",
-  "author": "PitchStock",
+  "author": "Veridian",
   "main": "electron/main.js",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
@@ -20,7 +20,7 @@
   },
   "build": {
     "appId": "com.pitchstock.app",
-    "productName": "PitchStock",
+    "productName": "Veridian",
     "directories": {
       "buildResources": "electron",
       "output": "release"
