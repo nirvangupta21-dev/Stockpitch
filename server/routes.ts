@@ -463,69 +463,125 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         }
       } catch { /* Python service unavailable, fall through */ }
 
-      // Fallback: Yahoo Finance v7 quote API (no auth needed)
+      // Fallback: Alpha Vantage OVERVIEW endpoint (free tier, 25 calls/day)
       if (!data) {
-        const fields = [
-          "trailingPE","forwardPE","priceToBook","bookValue",
-          "profitMargins","grossMargins","operatingMargins",
-          "returnOnEquity","returnOnAssets",
-          "freeCashflow","operatingCashflow",
-          "totalRevenue","ebitda","netIncomeToCommon",
-          "revenueGrowth","earningsGrowth",
-          "enterpriseValue","enterpriseToEbitda","enterpriseToRevenue",
-          "beta","sharesOutstanding","floatShares",
-          "dividendYield","trailingAnnualDividendYield",
-          "targetMeanPrice","targetMedianPrice","targetHighPrice","targetLowPrice",
-          "recommendationMean",
-        ].join(",");
-
-        const v7Url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker.toUpperCase()}&fields=${fields}`;
-        const v7Res = await fetch(v7Url, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json",
-            "Referer": "https://finance.yahoo.com",
-            "Origin": "https://finance.yahoo.com",
-          },
-          signal: AbortSignal.timeout(8000),
-        });
-
-        if (v7Res.ok) {
-          const v7Data = await v7Res.json();
-          const q = v7Data?.quoteResponse?.result?.[0];
-          if (q) {
-            data = {
-              trailingPE: q.trailingPE ?? null,
-              forwardPE: q.forwardPE ?? null,
-              priceToBook: q.priceToBook ?? null,
-              bookValuePerShare: q.bookValue ?? null,
-              netMargin: q.profitMargins ?? null,
-              grossMargin: q.grossMargins ?? null,
-              operatingMargin: q.operatingMargins ?? null,
-              returnOnEquity: q.returnOnEquity ?? null,
-              returnOnAssets: q.returnOnAssets ?? null,
-              freeCashFlow: q.freeCashflow ?? null,
-              operatingCashFlow: q.operatingCashflow ?? null,
-              revenue: q.totalRevenue ?? null,
-              ebitda: q.ebitda ?? null,
-              netIncome: q.netIncomeToCommon ?? null,
-              revenueGrowthTTM: q.revenueGrowth ?? null,
-              earningsGrowthTTM: q.earningsGrowth ?? null,
-              enterpriseValue: q.enterpriseValue ?? null,
-              evToEbitda: q.enterpriseToEbitda ?? null,
-              evToRevenue: q.enterpriseToRevenue ?? null,
-              beta: q.beta ?? null,
-              sharesOutstanding: q.sharesOutstanding ?? q.floatShares ?? null,
-              dividendYield: q.dividendYield ?? q.trailingAnnualDividendYield ?? null,
-              targetMeanPrice: q.targetMeanPrice ?? null,
-              targetMedianPrice: q.targetMedianPrice ?? null,
-              targetHighPrice: q.targetHighPrice ?? null,
-              targetLowPrice: q.targetLowPrice ?? null,
-              recommendationMean: q.recommendationMean ?? null,
-              revenueGrowthForward: null,
-              earningsGrowthForward: null,
-            };
+        try {
+          const avKey = process.env.ALPHA_VANTAGE_KEY || "JGY040BK7WJGV51O";
+          const avUrl = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker.toUpperCase()}&apikey=${avKey}`;
+          const avRes = await fetch(avUrl, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (avRes.ok) {
+            const av = await avRes.json();
+            if (av.Symbol) {
+              const n = (v: string) => v && v !== "None" && v !== "-" ? parseFloat(v) : null;
+              data = {
+                trailingPE: n(av.PERatio),
+                forwardPE: n(av.ForwardPE),
+                priceToBook: n(av.PriceToBookRatio),
+                bookValuePerShare: n(av.BookValue),
+                netMargin: n(av.ProfitMargin),
+                grossMargin: n(av.GrossProfitTTM) && n(av.RevenueTTM)
+                  ? (n(av.GrossProfitTTM)! / n(av.RevenueTTM)!) : null,
+                operatingMargin: n(av.OperatingMarginTTM),
+                returnOnEquity: n(av.ReturnOnEquityTTM),
+                returnOnAssets: n(av.ReturnOnAssetsTTM),
+                freeCashFlow: null,
+                operatingCashFlow: n(av.OperatingCashflowTTM),
+                revenue: n(av.RevenueTTM),
+                ebitda: n(av.EBITDA),
+                netIncome: n(av.NetIncomeTTM),
+                revenueGrowthTTM: n(av.QuarterlyRevenueGrowthYOY),
+                earningsGrowthTTM: n(av.QuarterlyEarningsGrowthYOY),
+                enterpriseValue: n(av.EVToEBITDA) && n(av.EBITDA)
+                  ? (n(av.EVToEBITDA)! * n(av.EBITDA)!) : null,
+                evToEbitda: n(av.EVToEBITDA),
+                evToRevenue: n(av.EVToRevenue),
+                beta: n(av.Beta),
+                sharesOutstanding: n(av.SharesOutstanding),
+                dividendYield: n(av.DividendYield),
+                targetMeanPrice: n(av.AnalystTargetPrice),
+                targetMedianPrice: n(av.AnalystTargetPrice),
+                targetHighPrice: n(av["52WeekHigh"]),
+                targetLowPrice: n(av["52WeekLow"]),
+                recommendationMean: null,
+                revenueGrowthForward: null,
+                earningsGrowthForward: null,
+              };
+            }
           }
+        } catch { /* fall through */ }
+      }
+
+      // Last resort: derive from Yahoo v8 chart API
+      if (!data) {
+        const sym = ticker.toUpperCase();
+        // Fetch 5y quarterly data — meta contains PE, EPS, market cap, beta etc.
+        const [chartRes, chart1dRes] = await Promise.all([
+          fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=3mo&range=5y&includePrePost=false`, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+          }),
+          fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+          }),
+        ]);
+
+        if (chartRes.ok && chart1dRes.ok) {
+          const cd = await chartRes.json();
+          const cd1 = await chart1dRes.json();
+          const meta = cd?.chart?.result?.[0]?.meta || {};
+          const meta1 = cd1?.chart?.result?.[0]?.meta || {};
+
+          // Merge meta from both calls
+          const m = { ...meta, ...meta1 };
+
+          // Derive EPS from price/PE if available
+          const price = m.regularMarketPrice || 0;
+          const pe = m.trailingPE || null;
+          const eps = pe && price ? price / pe : null;
+          const shares = m.sharesOutstanding || null;
+
+          // Revenue proxy from market cap + EV/Revenue if available
+          const mktCap = m.marketCap || null;
+          const evRev = m.enterpriseToRevenue || null;
+          const ev = m.enterpriseValue || (mktCap || 0) * 1.1;
+          const revenue = evRev && ev ? ev / evRev : null;
+          const ebitda = m.enterpriseToEbitda && ev ? ev / m.enterpriseToEbitda : null;
+
+          data = {
+            trailingPE: pe,
+            forwardPE: m.forwardPE || null,
+            priceToBook: m.priceToBook || null,
+            bookValuePerShare: m.bookValue || null,
+            netMargin: m.profitMargins || null,
+            grossMargin: m.grossMargins || null,
+            operatingMargin: m.operatingMargins || null,
+            returnOnEquity: m.returnOnEquity || null,
+            returnOnAssets: m.returnOnAssets || null,
+            freeCashFlow: m.freeCashflow || null,
+            operatingCashFlow: m.operatingCashflow || null,
+            revenue,
+            ebitda,
+            netIncome: eps && shares ? eps * shares : null,
+            revenueGrowthTTM: m.revenueGrowth || null,
+            earningsGrowthTTM: m.earningsGrowth || null,
+            enterpriseValue: ev || null,
+            evToEbitda: m.enterpriseToEbitda || null,
+            evToRevenue: evRev,
+            beta: m.beta || null,
+            sharesOutstanding: shares,
+            dividendYield: m.dividendYield || m.trailingAnnualDividendYield || null,
+            targetMeanPrice: m.targetMeanPrice || null,
+            targetMedianPrice: m.targetMedianPrice || null,
+            targetHighPrice: m.fiftyTwoWeekHigh || null,
+            targetLowPrice: m.fiftyTwoWeekLow || null,
+            recommendationMean: m.recommendationMean || null,
+            revenueGrowthForward: null,
+            earningsGrowthForward: null,
+            bookValuePerShare: m.bookValue || null,
+            operatingCashFlow: m.operatingCashflow || null,
+          };
         }
       }
 
