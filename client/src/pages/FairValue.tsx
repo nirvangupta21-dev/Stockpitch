@@ -1,14 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { fetchFundamentals, type Fundamentals } from "@/lib/fundamentals";
 import type { QuoteData } from "./Dashboard";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine,
 } from "recharts";
-import { Scale, Info, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Scale, Info, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 
-interface Fundamentals {
+interface _Fundamentals {
   revenueGrowthForward: number | null;
   earningsGrowthForward: number | null;
   revenueGrowthTTM: number | null;
@@ -108,11 +109,19 @@ export default function FairValue({ ticker }: Props) {
     retry: 2,
   });
 
-  const { data: fund, isLoading: fLoading, error: fError } = useQuery<Fundamentals>({
-    queryKey: ["/api/fundamentals", ticker],
-    queryFn: () => apiRequest("GET", `/api/fundamentals/${ticker}`).then(r => r.json()),
-    retry: 2,
-  });
+  // Fundamentals — fetched directly from Alpha Vantage in browser with memory cache
+  const [fund, setFund] = useState<Fundamentals | null>(null);
+  const [fLoading, setFLoading] = useState(false);
+  const [fError, setFError] = useState<Error | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    setFLoading(true);
+    setFError(null);
+    fetchFundamentals(ticker)
+      .then(data => { setFund(data); setFLoading(false); })
+      .catch(err => { setFError(err); setFLoading(false); });
+  }, [ticker, retryCount]);
 
   const loading = qLoading || fLoading;
   const currentPrice = quote?.price ?? 0;
@@ -217,9 +226,18 @@ export default function FairValue({ ticker }: Props) {
             <span className="text-sm text-muted-foreground">{quote.name}</span>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Info className="w-3.5 h-3.5" />
-          <span>Multi-model valuation · Adjust assumptions below</span>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Info className="w-3.5 h-3.5" />
+            <span>Multi-model valuation · Adjust assumptions below</span>
+          </div>
+          <button
+            onClick={() => setRetryCount(c => c + 1)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${fLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -227,9 +245,9 @@ export default function FairValue({ ticker }: Props) {
         <div className="space-y-4">
           {[1,2,3].map(i => <div key={i} className="skeleton h-32 w-full rounded-xl" />)}
         </div>
-      ) : (qError || fError) ? (
+      ) : qError ? (
         <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-          Could not load valuation data. Try searching a different ticker.
+          Could not load quote data. Try searching a different ticker.
         </div>
       ) : (
         <>
