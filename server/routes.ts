@@ -232,8 +232,74 @@ async function fetchYahooSearch(query: string) {
   return res.json();
 }
 
-// In-memory fundamentals cache — survives rate limits and temporary API outages
-const fundamentalsCache = new Map<string, { data: any; ts: number }>();
+// Persistent fundamentals cache — survives server restarts (SQLite-backed)
+import { existsSync, readFileSync, writeFileSync } from "fs";
+const FUND_CACHE_FILE = "fundamentals_cache.json";
+let fundamentalsCache: Map<string, { data: any; ts: number }>;
+try {
+  const raw = existsSync(FUND_CACHE_FILE) ? readFileSync(FUND_CACHE_FILE, "utf8") : "{}";
+  fundamentalsCache = new Map(Object.entries(JSON.parse(raw)));
+} catch {
+  fundamentalsCache = new Map();
+}
+
+function saveFundamentalsCache() {
+  try {
+    const obj = Object.fromEntries(fundamentalsCache);
+    writeFileSync(FUND_CACHE_FILE, JSON.stringify(obj));
+  } catch {}
+}
+
+// Alpha Vantage keys rotation (3 keys = 75 calls/day)
+const AV_KEYS = ["JGY040BK7WJGV51O", "LQIPW5U9PDOVRCS4", "2LRHUJBRLZSXVNQI"];
+let avKeyIndex = 0;
+const avExhausted = new Set<string>();
+
+function getAVKey(): string {
+  for (let i = 0; i < AV_KEYS.length; i++) {
+    const k = AV_KEYS[(avKeyIndex + i) % AV_KEYS.length];
+    if (!avExhausted.has(k)) { avKeyIndex = (avKeyIndex + i + 1) % AV_KEYS.length; return k; }
+  }
+  avExhausted.clear(); return AV_KEYS[0];
+}
+
+async function fetchFromAlphaVantage(ticker: string): Promise<any | null> {
+  for (let attempt = 0; attempt < AV_KEYS.length; attempt++) {
+    const key = getAVKey();
+    try {
+      const r = await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${key}`, {
+        headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(10000),
+      });
+      if (!r.ok) continue;
+      const av = await r.json();
+      if (av.Note || av.Information) { avExhausted.add(key); continue; }
+      if (!av.Symbol) continue;
+      const n = (v: string) => v && v !== "None" && v !== "-" ? parseFloat(v) || null : null;
+      const ev = n(av.EVToEBITDA) && n(av.EBITDA) ? n(av.EVToEBITDA)! * n(av.EBITDA)! : null;
+      const revenue = n(av.RevenueTTM);
+      const grossProfit = n(av.GrossProfitTTM);
+      return {
+        trailingPE: n(av.PERatio), forwardPE: n(av.ForwardPE),
+        priceToBook: n(av.PriceToBookRatio), bookValuePerShare: n(av.BookValue),
+        netMargin: n(av.ProfitMargin),
+        grossMargin: grossProfit && revenue ? grossProfit / revenue : null,
+        operatingMargin: n(av.OperatingMarginTTM),
+        returnOnEquity: n(av.ReturnOnEquityTTM), returnOnAssets: n(av.ReturnOnAssetsTTM),
+        freeCashFlow: null, operatingCashFlow: n(av.OperatingCashflowTTM),
+        revenue, ebitda: n(av.EBITDA), netIncome: n(av.NetIncomeTTM),
+        revenueGrowthTTM: n(av.QuarterlyRevenueGrowthYOY),
+        earningsGrowthTTM: n(av.QuarterlyEarningsGrowthYOY),
+        enterpriseValue: ev, evToEbitda: n(av.EVToEBITDA), evToRevenue: n(av.EVToRevenue),
+        beta: n(av.Beta), sharesOutstanding: n(av.SharesOutstanding),
+        dividendYield: n(av.DividendYield),
+        targetMeanPrice: n(av.AnalystTargetPrice), targetMedianPrice: n(av.AnalystTargetPrice),
+        targetHighPrice: n(av["52WeekHigh"]), targetLowPrice: n(av["52WeekLow"]),
+        recommendationMean: null, revenueGrowthForward: null, earningsGrowthForward: null,
+      };
+    } catch { continue; }
+  }
+  return null;
+}
 
 export async function registerRoutes(httpServer: Server, app: Express) {
   // Search for ticker symbols
@@ -446,16 +512,25 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // Fundamentals for fair value
-  // Tries Python yfinance first (most data), falls back to Yahoo v7 quote API
+  // Fundamentals for fair value — persistent cache + 3-key Alpha Vantage rotation
   app.get("/api/fundamentals/:ticker", async (req, res) => {
     try {
       const { ticker } = req.params;
+      const sym = ticker.toUpperCase();
+      const cacheKey = `fundamentals_${sym}`;
+      const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-      // Try Python yfinance microservice first
+      // 1. Serve from persistent cache if fresh
+      const cached = fundamentalsCache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        return res.json(cached.data);
+      }
+
       let data: any = null;
+
+      // 2. Try Python yfinance microservice (richest data, works in Perplexity session)
       try {
-        const pyRes = await fetch(`http://127.0.0.1:5001/?ticker=${ticker.toUpperCase()}`, {
+        const pyRes = await fetch(`http://127.0.0.1:5001/?ticker=${sym}`, {
           signal: AbortSignal.timeout(5000),
         });
         if (pyRes.ok) {
@@ -464,66 +539,11 @@ export async function registerRoutes(httpServer: Server, app: Express) {
             data = pyData;
           }
         }
-      } catch { /* Python service unavailable, fall through */ }
+      } catch { /* fall through */ }
 
-      // Serve from cache if available and fresh (1 hour TTL)
-      const cacheKey = `fundamentals_${ticker.toUpperCase()}`;
-      if (!data && fundamentalsCache.has(cacheKey)) {
-        const cached = fundamentalsCache.get(cacheKey)!;
-        if (Date.now() - cached.ts < 3_600_000) {
-          return res.json(cached.data);
-        }
-      }
-
-      // Fallback: Alpha Vantage OVERVIEW endpoint (free tier, 25 calls/day)
+      // 3. Alpha Vantage with 3-key rotation
       if (!data) {
-        try {
-          const avKey = process.env.ALPHA_VANTAGE_KEY || "JGY040BK7WJGV51O";
-          const avUrl = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker.toUpperCase()}&apikey=${avKey}`;
-          const avRes = await fetch(avUrl, {
-            headers: { "User-Agent": "Mozilla/5.0" },
-            signal: AbortSignal.timeout(10000),
-          });
-          if (avRes.ok) {
-            const av = await avRes.json();
-            if (av.Symbol) {
-              const n = (v: string) => v && v !== "None" && v !== "-" ? parseFloat(v) : null;
-              data = {
-                trailingPE: n(av.PERatio),
-                forwardPE: n(av.ForwardPE),
-                priceToBook: n(av.PriceToBookRatio),
-                bookValuePerShare: n(av.BookValue),
-                netMargin: n(av.ProfitMargin),
-                grossMargin: n(av.GrossProfitTTM) && n(av.RevenueTTM)
-                  ? (n(av.GrossProfitTTM)! / n(av.RevenueTTM)!) : null,
-                operatingMargin: n(av.OperatingMarginTTM),
-                returnOnEquity: n(av.ReturnOnEquityTTM),
-                returnOnAssets: n(av.ReturnOnAssetsTTM),
-                freeCashFlow: null,
-                operatingCashFlow: n(av.OperatingCashflowTTM),
-                revenue: n(av.RevenueTTM),
-                ebitda: n(av.EBITDA),
-                netIncome: n(av.NetIncomeTTM),
-                revenueGrowthTTM: n(av.QuarterlyRevenueGrowthYOY),
-                earningsGrowthTTM: n(av.QuarterlyEarningsGrowthYOY),
-                enterpriseValue: n(av.EVToEBITDA) && n(av.EBITDA)
-                  ? (n(av.EVToEBITDA)! * n(av.EBITDA)!) : null,
-                evToEbitda: n(av.EVToEBITDA),
-                evToRevenue: n(av.EVToRevenue),
-                beta: n(av.Beta),
-                sharesOutstanding: n(av.SharesOutstanding),
-                dividendYield: n(av.DividendYield),
-                targetMeanPrice: n(av.AnalystTargetPrice),
-                targetMedianPrice: n(av.AnalystTargetPrice),
-                targetHighPrice: n(av["52WeekHigh"]),
-                targetLowPrice: n(av["52WeekLow"]),
-                recommendationMean: null,
-                revenueGrowthForward: null,
-                earningsGrowthForward: null,
-              };
-            }
-          }
-        } catch { /* fall through */ }
+        data = await fetchFromAlphaVantage(sym);
       }
 
       // Last resort: derive from Yahoo v8 chart API
@@ -626,15 +646,14 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       }
 
       if (!data) {
-        // Last resort: serve stale cache even if expired
-        if (fundamentalsCache.has(cacheKey)) {
-          return res.json(fundamentalsCache.get(cacheKey)!.data);
-        }
+        // Last resort: serve stale cache even if it's old
+        if (cached) return res.json(cached.data);
         return res.status(404).json({ message: "Fundamentals not available for this ticker" });
       }
 
-      // Save to cache for future requests
+      // Save to persistent cache and respond
       fundamentalsCache.set(cacheKey, { data, ts: Date.now() });
+      saveFundamentalsCache();
       res.json(data);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
