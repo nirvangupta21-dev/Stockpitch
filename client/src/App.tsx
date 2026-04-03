@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import IntroScreen from "@/components/IntroScreen";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,6 +28,7 @@ const TABS = [
 type TabId = "dashboard" | "fairvalue" | "explorer" | "ipos" | "bubble" | "news" | "settings";
 
 function AppInner() {
+  const [entered, setEntered] = useState(false);
   const [tab, setTab]       = useState<TabId>("dashboard");
   const [ticker, setTicker] = useState("AAPL");
 
@@ -36,6 +38,7 @@ function AppInner() {
 
   return (
     <>
+      {!entered && <IntroScreen onEnter={() => setEntered(true)} />}
       {/* Sticky top nav */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3 justify-between">
