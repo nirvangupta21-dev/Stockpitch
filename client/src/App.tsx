@@ -5,18 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
 import Dashboard from "./pages/Dashboard";
-import FairValue from "./pages/FairValue";
 import News from "./pages/News";
 import StockExplorer from "./pages/StockExplorer";
 import Settings from "./pages/Settings";
 import BubbleAnalysis from "./pages/BubbleAnalysis";
 import IPOListings from "./pages/IPOListings";
 import { SettingsProvider } from "./lib/settings";
-import { TrendingUp, Scale, Globe, List, Settings2, Activity, Building2 } from "lucide-react";
+import { TrendingUp, Globe, List, Settings2, Activity, Building2 } from "lucide-react";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard",    icon: TrendingUp },
-  { id: "fairvalue", label: "Fair Value",   icon: Scale },
   { id: "explorer",  label: "Stocks",       icon: List },
   { id: "ipos",      label: "IPOs",         icon: Building2 },
   { id: "bubble",    label: "Bubble",       icon: Activity },
@@ -24,7 +22,7 @@ const TABS = [
   { id: "settings",  label: "My Portfolio", icon: Settings2 },
 ];
 
-type TabId = "dashboard" | "fairvalue" | "explorer" | "ipos" | "bubble" | "news" | "settings";
+type TabId = "dashboard" | "explorer" | "ipos" | "bubble" | "news" | "settings";
 
 function AppInner() {
   const [tab, setTab]       = useState<TabId>("dashboard");
@@ -75,7 +73,6 @@ function AppInner() {
       {/* Page content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {tab === "dashboard" && <Dashboard ticker={ticker} onTickerChange={setTicker} />}
-        {tab === "fairvalue" && <FairValue ticker={ticker} />}
         {tab === "explorer"  && (
           <StockExplorer onSelectTicker={t => { setTicker(t); setTab("dashboard"); }} />
         )}
