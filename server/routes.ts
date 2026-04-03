@@ -232,6 +232,9 @@ async function fetchYahooSearch(query: string) {
   return res.json();
 }
 
+// In-memory fundamentals cache — survives rate limits and temporary API outages
+const fundamentalsCache = new Map<string, { data: any; ts: number }>();
+
 export async function registerRoutes(httpServer: Server, app: Express) {
   // Search for ticker symbols
   app.get("/api/search", async (req, res) => {
@@ -463,6 +466,15 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         }
       } catch { /* Python service unavailable, fall through */ }
 
+      // Serve from cache if available and fresh (1 hour TTL)
+      const cacheKey = `fundamentals_${ticker.toUpperCase()}`;
+      if (!data && fundamentalsCache.has(cacheKey)) {
+        const cached = fundamentalsCache.get(cacheKey)!;
+        if (Date.now() - cached.ts < 3_600_000) {
+          return res.json(cached.data);
+        }
+      }
+
       // Fallback: Alpha Vantage OVERVIEW endpoint (free tier, 25 calls/day)
       if (!data) {
         try {
@@ -613,7 +625,16 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         }
       }
 
-      if (!data) return res.status(404).json({ message: "Fundamentals not available for this ticker" });
+      if (!data) {
+        // Last resort: serve stale cache even if expired
+        if (fundamentalsCache.has(cacheKey)) {
+          return res.json(fundamentalsCache.get(cacheKey)!.data);
+        }
+        return res.status(404).json({ message: "Fundamentals not available for this ticker" });
+      }
+
+      // Save to cache for future requests
+      fundamentalsCache.set(cacheKey, { data, ts: Date.now() });
       res.json(data);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
