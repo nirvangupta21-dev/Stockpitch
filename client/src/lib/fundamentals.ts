@@ -3,7 +3,29 @@
 // Free key: 25 requests/day, resets midnight UTC.
 // Results cached in memory so repeated lookups within a session are instant.
 
-const AV_KEY = "JGY040BK7WJGV51O";
+// Key rotation — 3 free keys = 75 calls/day total
+const AV_KEYS = [
+  "JGY040BK7WJGV51O",
+  "LQIPW5U9PDOVRCS4",
+  "2LRHUJBRLZSXVNQI",
+];
+let keyIndex = 0;
+const exhaustedKeys = new Set<string>();
+
+function getNextKey(): string {
+  // Find a non-exhausted key
+  for (let i = 0; i < AV_KEYS.length; i++) {
+    const k = AV_KEYS[(keyIndex + i) % AV_KEYS.length];
+    if (!exhaustedKeys.has(k)) {
+      keyIndex = (keyIndex + i + 1) % AV_KEYS.length;
+      return k;
+    }
+  }
+  // All exhausted — reset and try again
+  exhaustedKeys.clear();
+  return AV_KEYS[0];
+}
+
 const AV_BASE = "https://www.alphavantage.co/query";
 
 export interface Fundamentals {
@@ -111,19 +133,27 @@ export async function fetchFundamentals(ticker: string): Promise<Fundamentals> {
     }
   } catch { /* fall through */ }
 
-  // 3. Call Alpha Vantage directly from browser
-  try {
-    const url = `${AV_BASE}?function=OVERVIEW&symbol=${key}&apikey=${AV_KEY}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (res.ok) {
-      const av = await res.json();
-      if (av.Symbol) {
-        const data = parseAV(av);
-        memCache.set(key, { data, ts: Date.now() });
-        return data;
+  // 3. Call Alpha Vantage directly from browser — try all keys until one works
+  for (let attempt = 0; attempt < AV_KEYS.length; attempt++) {
+    const avKey = getNextKey();
+    try {
+      const url = `${AV_BASE}?function=OVERVIEW&symbol=${key}&apikey=${avKey}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (res.ok) {
+        const av = await res.json();
+        if (av.Symbol) {
+          const data = parseAV(av);
+          memCache.set(key, { data, ts: Date.now() });
+          return data;
+        }
+        // Rate limit hit — mark this key as exhausted and try next
+        if (av.Note || av.Information) {
+          exhaustedKeys.add(avKey);
+          continue;
+        }
       }
-    }
-  } catch { /* fall through */ }
+    } catch { /* try next key */ }
+  }
 
   // 4. Return stale cache if all else fails
   if (cached) return cached.data;
