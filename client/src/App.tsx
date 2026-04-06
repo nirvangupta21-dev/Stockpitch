@@ -59,12 +59,16 @@ function AppInner() {
       {/* Sticky top nav */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3 justify-between">
-          <div className="flex items-center gap-3 shrink-0">
+          <button
+            className="flex items-center gap-3 shrink-0 hover:opacity-75 transition-opacity"
+            onClick={() => { setTicker(null); setTab("dashboard"); }}
+            data-testid="button-logo-home"
+          >
             <Logo />
             <span className="hidden lg:block text-xs text-muted-foreground font-medium tracking-widest uppercase">
               Investment Research
             </span>
-          </div>
+          </button>
 
           {/* Search */}
           <div className="flex-1 max-w-sm">
