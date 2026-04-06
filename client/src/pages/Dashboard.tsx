@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import StockHeader from "@/components/StockHeader";
+import { ArrowLeft } from "lucide-react";
 import PriceChart from "@/components/PriceChart";
 import InvestmentCalculator from "@/components/InvestmentCalculator";
 import MetricsBar from "@/components/MetricsBar";
@@ -31,7 +32,7 @@ export interface HistoryPoint {
 
 interface Props {
   ticker: string | null;      // null = landing state, string = stock view
-  onTickerChange: (t: string) => void;
+  onTickerChange: (t: string | null) => void;
 }
 
 export default function Dashboard({ ticker, onTickerChange }: Props) {
@@ -65,6 +66,15 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
   // ── Stock view: ticker selected ───────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Back to markets button */}
+      <button
+        onClick={() => onTickerChange(null)}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+        data-testid="button-back-to-markets"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+        Back to Markets
+      </button>
       <StockHeader quote={quote} loading={quoteLoading} error={quoteError as Error} />
       <MetricsBar quote={quote} loading={quoteLoading} />
       <PriceChart

@@ -94,7 +94,7 @@ function AppInner() {
 
       {/* Page content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {tab === "dashboard" && <Dashboard ticker={ticker} onTickerChange={t => { setTicker(t); }} />}
+        {tab === "dashboard" && <Dashboard ticker={ticker} onTickerChange={t => setTicker(t ?? null)} />}
         {tab === "fairvalue" && <FairValue ticker={ticker ?? "AAPL"} />}
         {tab === "explorer"  && (
           <StockExplorer onSelectTicker={t => { setTicker(t); setTab("dashboard"); }} />

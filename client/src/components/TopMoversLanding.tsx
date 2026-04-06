@@ -104,7 +104,7 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
     retry: 2,
   });
 
-  const gainers = (data?.gainers ?? []).slice(0, 10);
+  const gainers = (data?.gainers ?? []).slice(0, 14);
 
   return (
     <div className="space-y-6">
@@ -138,8 +138,8 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
 
       {/* Grid of mover cards */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {Array.from({ length: 10 }).map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {Array.from({ length: 14 }).map((_, i) => (
             <div key={i} className="rounded-xl bg-card border border-border/50 p-4 space-y-3 animate-pulse">
               <div className="h-4 bg-secondary rounded w-16" />
               <div className="h-10 bg-secondary rounded" />
@@ -152,7 +152,7 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
           Market data unavailable — try searching a specific ticker above.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {gainers.map(m => (
             <MoverCard
               key={m.ticker}
