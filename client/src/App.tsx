@@ -46,10 +46,11 @@ type TabId = "dashboard" | "fairvalue" | "explorer" | "ipos" | "bubble" | "news"
 function AppInner() {
   const [entered, setEntered] = useState(() => hasRecentSession());
   const [tab, setTab]       = useState<TabId>("dashboard");
-  const [ticker, setTicker] = useState("AAPL");
+  const [ticker, setTicker] = useState<string | null>(null); // null = landing state
 
   const handleSelect = useCallback((t: string) => {
     setTicker(t.toUpperCase());
+    setTab("dashboard"); // always jump to dashboard when a stock is searched
   }, []);
 
   return (
@@ -67,7 +68,7 @@ function AppInner() {
 
           {/* Search */}
           <div className="flex-1 max-w-sm">
-            <SearchBar onSelect={handleSelect} currentTicker={ticker} />
+            <SearchBar onSelect={handleSelect} currentTicker={ticker ?? ""} />
           </div>
 
           {/* Tab switcher */}
@@ -93,8 +94,8 @@ function AppInner() {
 
       {/* Page content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {tab === "dashboard" && <Dashboard ticker={ticker} onTickerChange={setTicker} />}
-        {tab === "fairvalue" && <FairValue ticker={ticker} />}
+        {tab === "dashboard" && <Dashboard ticker={ticker} onTickerChange={t => { setTicker(t); }} />}
+        {tab === "fairvalue" && <FairValue ticker={ticker ?? "AAPL"} />}
         {tab === "explorer"  && (
           <StockExplorer onSelectTicker={t => { setTicker(t); setTab("dashboard"); }} />
         )}
