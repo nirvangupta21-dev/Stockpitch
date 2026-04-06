@@ -8,8 +8,9 @@ import {
   RotateCcw, Save, Check, Edit2, X,
   BarChart2, Zap, Clock, Sliders,
   Scale, List, Globe, ChevronDown, ChevronUp,
-  Building2, Activity, MonitorPlay,
+  Building2, Activity, MonitorPlay, Calculator,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import {
   ResponsiveContainer, PieChart as RPieChart, Pie, Cell, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -118,6 +119,205 @@ function NumberInput({ value, onChange, min, max, step, suffix }: { value: numbe
         className="w-20 px-2 py-1.5 bg-secondary border border-border rounded-lg text-xs text-right text-foreground tabular-nums focus:outline-none focus:ring-1 focus:ring-primary/50"
       />
       {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
+    </div>
+  );
+}
+
+// ─── ROI Calculator ─────────────────────────────────────────────────────────
+function ROICalculator({ currentValue, costBasis }: { currentValue: number; costBasis: number }) {
+  const [open, setOpen] = useState(false);
+
+  // Hypothetical inputs
+  const [investment, setInvestment] = useState(10000);
+  const [annualReturn, setAnnualReturn] = useState(12);
+  const [years, setYears] = useState(10);
+  const [contributions, setContributions] = useState(0);
+  const [inflationAdj, setInflationAdj] = useState(false);
+  const INFLATION = 3.0;
+
+  // ── Compound growth calculation ──────────────────────────────────────────
+  const r = annualReturn / 100;
+  const rAdj = inflationAdj ? (1 + r) / (1 + INFLATION / 100) - 1 : r;
+
+  // Future value of lump sum
+  const fvLump = investment * Math.pow(1 + rAdj, years);
+  // Future value of annual contributions (end of year)
+  const fvContrib = contributions > 0
+    ? contributions * ((Math.pow(1 + rAdj, years) - 1) / rAdj)
+    : 0;
+  const futureValue = fvLump + fvContrib;
+  const totalInvested = investment + contributions * years;
+  const totalGain = futureValue - totalInvested;
+  const roiPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+  const cagr = investment > 0 && years > 0
+    ? (Math.pow(futureValue / (investment || 1), 1 / years) - 1) * 100 : 0;
+
+  // Yearly projection table
+  const projection = Array.from({ length: Math.min(years, 30) }, (_, i) => {
+    const y = i + 1;
+    const fv = investment * Math.pow(1 + rAdj, y) +
+      (contributions > 0 ? contributions * ((Math.pow(1 + rAdj, y) - 1) / rAdj) : 0);
+    return { year: y, value: fv, invested: investment + contributions * y };
+  });
+
+  const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmtK = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`;
+
+  // Portfolio-level actual ROI
+  const actualROI = costBasis > 0 ? ((currentValue - costBasis) / costBasis) * 100 : null;
+
+  return (
+    <div className="rounded-xl bg-card border border-border/50 overflow-hidden mb-5">
+      {/* Toggle header */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-secondary/20 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Calculator className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>ROI Calculator</span>
+          {actualROI !== null && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-md tabular-nums ${
+              actualROI >= 0 ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+            }`}>
+              Portfolio: {actualROI >= 0 ? "+" : ""}{actualROI.toFixed(1)}% actual ROI
+            </span>
+          )}
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-border/30 px-5 py-5 space-y-6">
+
+          {/* ── Inputs grid ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+            {/* Initial investment */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Initial Investment</label>
+                <span className="text-sm font-bold font-mono text-foreground">${fmt(investment)}</span>
+              </div>
+              <Slider min={1000} max={500000} step={1000} value={[investment]} onValueChange={([v]) => setInvestment(v)} />
+              <div className="flex justify-between text-xs text-muted-foreground/50 mt-1">
+                <span>$1K</span><span>$500K</span>
+              </div>
+            </div>
+
+            {/* Annual return */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Annual Return</label>
+                <span className="text-sm font-bold font-mono text-foreground">{annualReturn}%</span>
+              </div>
+              <Slider min={1} max={50} step={0.5} value={[annualReturn]} onValueChange={([v]) => setAnnualReturn(v)} />
+              <div className="flex justify-between text-xs text-muted-foreground/50 mt-1">
+                <span>1%</span><span>50%</span>
+              </div>
+            </div>
+
+            {/* Time horizon */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Time Horizon</label>
+                <span className="text-sm font-bold font-mono text-foreground">{years} yr{years !== 1 ? "s" : ""}</span>
+              </div>
+              <Slider min={1} max={30} step={1} value={[years]} onValueChange={([v]) => setYears(v)} />
+              <div className="flex justify-between text-xs text-muted-foreground/50 mt-1">
+                <span>1yr</span><span>30yr</span>
+              </div>
+            </div>
+
+            {/* Annual contributions */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Annual Additions</label>
+                <span className="text-sm font-bold font-mono text-foreground">${fmt(contributions)}</span>
+              </div>
+              <Slider min={0} max={50000} step={500} value={[contributions]} onValueChange={([v]) => setContributions(v)} />
+              <div className="flex justify-between text-xs text-muted-foreground/50 mt-1">
+                <span>$0</span><span>$50K</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Inflation toggle */}
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setInflationAdj(a => !a)}
+              className={`w-8 h-4 rounded-full transition-colors relative ${
+                inflationAdj ? "bg-primary" : "bg-secondary border border-border"
+              }`}
+            >
+              <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
+                inflationAdj ? "translate-x-4" : "translate-x-0.5"
+              }`} />
+            </button>
+            <span className="text-xs text-muted-foreground">
+              Inflation-adjusted returns (3% CPI)
+              {inflationAdj && <span className="text-yellow-400 ml-1">— real return: {(annualReturn - INFLATION).toFixed(1)}%</span>}
+            </span>
+          </div>
+
+          {/* ── Results strip ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Future Value",    value: fmtK(futureValue),           color: "text-green-400 text-xl" },
+              { label: "Total Invested",  value: fmtK(totalInvested),          color: "text-foreground" },
+              { label: "Total Gain",      value: `+${fmtK(totalGain)}`,        color: "text-green-400" },
+              { label: "ROI",             value: `+${roiPct.toFixed(0)}%`,     color: "text-green-400" },
+            ].map(s => (
+              <div key={s.label} className="rounded-xl bg-secondary/40 border border-border/30 px-4 py-3">
+                <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
+                <p className={`font-bold font-mono tabular-nums ${s.color}`} style={{ fontFamily: "var(--font-display)" }}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* CAGR note */}
+          <p className="text-xs text-muted-foreground">
+            Effective CAGR: <span className="font-mono font-bold text-foreground">{cagr.toFixed(2)}%</span>
+            {inflationAdj && " (inflation-adjusted)"}
+            {contributions > 0 && ` · Including $${fmt(contributions)}/yr in additions`}
+          </p>
+
+          {/* ── Projection table ── */}
+          <div className="rounded-xl bg-secondary/30 border border-border/30 overflow-hidden">
+            <div className="grid grid-cols-4 px-4 py-2 border-b border-border/30 bg-secondary/40">
+              {["Year", "Amount Invested", "Portfolio Value", "Gain"].map(h => (
+                <p key={h} className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{h}</p>
+              ))}
+            </div>
+            <div className="max-h-52 overflow-y-auto divide-y divide-border/20">
+              {projection.map(row => {
+                const g = row.value - row.invested;
+                return (
+                  <div key={row.year} className="grid grid-cols-4 px-4 py-2.5 hover:bg-secondary/20 transition-colors">
+                    <p className="text-xs font-mono text-muted-foreground">Yr {row.year}</p>
+                    <p className="text-xs font-mono tabular-nums text-foreground">{fmtK(row.invested)}</p>
+                    <p className="text-xs font-mono tabular-nums text-foreground font-semibold">{fmtK(row.value)}</p>
+                    <p className={`text-xs font-mono tabular-nums font-semibold ${g >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      +{fmtK(g)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Portfolio pre-fill hint */}
+          {costBasis > 0 && (
+            <button
+              onClick={() => { setInvestment(Math.round(costBasis)); }}
+              className="text-xs text-primary hover:underline"
+            >
+              Use my portfolio cost basis (${fmt(costBasis)}) as the starting investment →
+            </button>
+          )}
+
+        </div>
+      )}
     </div>
   );
 }
@@ -768,6 +968,9 @@ export default function Settings() {
             </div>
           ))}
         </div>
+
+        {/* ── ROI Calculator ─────────────────────────────────── */}
+        <ROICalculator currentValue={totalValue} costBasis={totalCost} />
 
         {/* Chart + table layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-4">
