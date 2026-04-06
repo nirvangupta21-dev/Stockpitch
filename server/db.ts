@@ -13,4 +13,14 @@ sqlite.exec(`
     company_name TEXT NOT NULL,
     added_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS portfolio (
+    id           TEXT PRIMARY KEY,
+    ticker       TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    shares       REAL NOT NULL,
+    avg_cost     REAL NOT NULL,
+    purchase_date TEXT NOT NULL,
+    notes        TEXT NOT NULL DEFAULT ''
+  );
 `);

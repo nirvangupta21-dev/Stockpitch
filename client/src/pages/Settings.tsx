@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import * as XLSX from "xlsx";
 import {
@@ -561,7 +561,7 @@ function ControlsGuide() {
                         <li className="flex gap-2"><span className="text-green-400 shrink-0">→</span>The Excel export includes a TOTAL row — use it to paste directly into an existing spreadsheet or send to an advisor.</li>
                         <li className="flex gap-2"><span className="text-green-400 shrink-0">→</span>Cross-reference the Fair Value tab to see whether your current holdings are trading above or below their intrinsic value.</li>
                         <li className="flex gap-2"><span className="text-green-400 shrink-0">→</span>The allocation donut updates live — use it to spot when a position has grown too large relative to your target weighting.</li>
-                        <li className="flex gap-2"><span className="text-green-400 shrink-0">→</span>Note: portfolio data is stored in memory only and resets on page reload. Export to Excel regularly to preserve your records.</li>
+                        <li className="flex gap-2"><span className="text-green-400 shrink-0">→</span>Portfolio data is saved automatically to the server — it persists across reloads and sessions. Export to Excel anytime for an offline backup.</li>
                       </ul>
                     </div>
                   )}
@@ -578,9 +578,28 @@ function ControlsGuide() {
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function Settings() {
   const { settings, update, reset } = useSettings();
-  const [positions, setPositions] = useState<Position[]>(INITIAL_POSITIONS);
   const [modal, setModal] = useState<{ open: boolean; editing?: Position }>({ open: false });
   const [saved, setSaved] = useState(false);
+
+  // ── Load positions from server (persisted in SQLite) ─────────────────────
+  const { data: positions = [], isLoading: posLoading } = useQuery<Position[]>({
+    queryKey: ["/api/portfolio"],
+    queryFn: () => apiRequest("GET", "/api/portfolio").then(r => r.json()),
+    staleTime: 10000,
+  });
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const upsertMutation = useMutation({
+    mutationFn: (pos: Position) =>
+      apiRequest("POST", "/api/portfolio", pos).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("DELETE", `/api/portfolio/${id}`).then(r => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] }),
+  });
 
   // Fetch live prices for all portfolio tickers
   const tickers = [...new Set(positions.map(p => p.ticker))];
@@ -627,18 +646,20 @@ export default function Settings() {
 
   // Handlers
   const addPosition = useCallback((data: Omit<Position, "id">) => {
-    setPositions(prev => [...prev, { ...data, id: Date.now().toString() }]);
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    upsertMutation.mutate({ ...data, id });
     setModal({ open: false });
-  }, []);
+  }, [upsertMutation]);
 
   const editPosition = useCallback((data: Omit<Position, "id">) => {
-    setPositions(prev => prev.map(p => p.id === modal.editing?.id ? { ...data, id: p.id } : p));
+    if (!modal.editing) return;
+    upsertMutation.mutate({ ...data, id: modal.editing.id });
     setModal({ open: false });
-  }, [modal.editing]);
+  }, [modal.editing, upsertMutation]);
 
   const deletePosition = useCallback((id: string) => {
-    setPositions(prev => prev.filter(p => p.id !== id));
-  }, []);
+    deleteMutation.mutate(id);
+  }, [deleteMutation]);
 
   // ─── Excel export ──────────────────────────────────────────────────────────
   function exportToExcel() {

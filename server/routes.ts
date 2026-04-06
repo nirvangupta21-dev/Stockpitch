@@ -948,4 +948,22 @@ ${stockContext}` : ""}`;
     storage.removeFromWatchlist(parseInt(req.params.id));
     res.json({ success: true });
   });
+
+  // Portfolio routes
+  app.get("/api/portfolio", (_req, res) => {
+    res.json(storage.getPortfolio());
+  });
+
+  app.post("/api/portfolio", (req, res) => {
+    const { insertPortfolioSchema } = require("@shared/schema");
+    const parsed = insertPortfolioSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    const pos = storage.upsertPosition(parsed.data);
+    res.json(pos);
+  });
+
+  app.delete("/api/portfolio/:id", (req, res) => {
+    storage.deletePosition(req.params.id);
+    res.json({ success: true });
+  });
 }

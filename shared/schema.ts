@@ -13,3 +13,18 @@ export const watchlist = sqliteTable("watchlist", {
 export const insertWatchlistSchema = createInsertSchema(watchlist).omit({ id: true });
 export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
 export type Watchlist = typeof watchlist.$inferSelect;
+
+// Portfolio positions
+export const portfolio = sqliteTable("portfolio", {
+  id:           text("id").primaryKey(),          // client-generated UUID
+  ticker:       text("ticker").notNull(),
+  name:         text("name").notNull(),
+  shares:       real("shares").notNull(),
+  avgCost:      real("avg_cost").notNull(),
+  purchaseDate: text("purchase_date").notNull(),
+  notes:        text("notes").notNull().default(""),
+});
+
+export const insertPortfolioSchema = createInsertSchema(portfolio);
+export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
+export type PortfolioPosition = typeof portfolio.$inferSelect;
