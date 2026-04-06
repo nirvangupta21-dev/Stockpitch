@@ -487,6 +487,20 @@ export default function News() {
         )}
       </div>
 
+      {/* Sentiment legend */}
+      <div className="flex flex-wrap items-center gap-4 px-1 pb-1">
+        {[
+          { color: "bg-green-400", label: "Bullish",  def: "Event is likely to drive markets or affected sectors upward — positive for prices, demand, or investor confidence." },
+          { color: "bg-red-400",   label: "Bearish",  def: "Event is likely to pressure markets downward — negative for prices, growth outlooks, or risk appetite." },
+          { color: "bg-yellow-400",label: "Neutral",  def: "Event has mixed or unclear market impact — outcome depends on how it develops or varies by sector." },
+        ].map(s => (
+          <div key={s.label} className="flex items-start gap-2 text-xs text-muted-foreground max-w-xs">
+            <span className={`w-2 h-2 rounded-full ${s.color} shrink-0 mt-0.5`} />
+            <span><span className="font-semibold text-foreground">{s.label}:</span> {s.def}</span>
+          </div>
+        ))}
+      </div>
+
       {/* News list */}
       {isLoading ? (
         <div className="space-y-3">
