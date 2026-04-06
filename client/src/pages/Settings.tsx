@@ -131,6 +131,7 @@ function PositionRow({
   onEdit: (p: Position) => void;
   onDelete: (id: string) => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const price = livePrice ?? pos.avgCost;
   const currentValue = price * pos.shares;
   const costBasis = pos.avgCost * pos.shares;
@@ -139,106 +140,238 @@ function PositionRow({
   const isGain = gain >= 0;
 
   return (
-    <div className="grid items-center gap-3 px-4 py-3 border-b border-border/20 last:border-0 hover:bg-secondary/20 transition-colors"
-      style={{ gridTemplateColumns: "1fr 5rem 5rem 5rem 6rem 6rem 6rem 5.5rem" }}>
-      {/* Name */}
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-sm text-primary">{pos.ticker}</span>
-          {pos.notes && <span className="text-xs text-muted-foreground/60 hidden md:block truncate max-w-[120px]">{pos.notes}</span>}
+    <div className="px-4 py-4 border-b border-border/20 last:border-0 hover:bg-secondary/10 transition-colors">
+      {/* Top row: ticker + name + actions */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono font-bold text-base text-primary">{pos.ticker}</span>
+            <span className="text-sm text-muted-foreground truncate">{pos.name}</span>
+          </div>
+          {pos.notes && (
+            <p className="text-xs text-muted-foreground/50 mt-0.5 truncate italic">{pos.notes}</p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground truncate">{pos.name}</p>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {confirmDelete ? (
+            <>
+              <span className="text-xs text-red-400 mr-1 font-medium">Remove?</span>
+              <button
+                onClick={() => onDelete(pos.id)}
+                className="px-3 py-1.5 text-xs rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 font-semibold hover:bg-red-500/25 transition-colors"
+              >Yes, remove</button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
+              >Keep</button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onEdit(pos)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+              >
+                <Edit2 className="w-3 h-3" /> Edit
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/5 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" /> Remove
+              </button>
+            </>
+          )}
+        </div>
       </div>
-      {/* Shares */}
-      <p className="text-sm tabular-nums text-right font-mono">{pos.shares.toLocaleString()}</p>
-      {/* Avg cost */}
-      <p className="text-sm tabular-nums text-right font-mono text-muted-foreground">${pos.avgCost.toFixed(2)}</p>
-      {/* Live price */}
-      <p className="text-sm tabular-nums text-right font-mono">${price.toFixed(2)}</p>
-      {/* Current value */}
-      <p className="text-sm tabular-nums text-right font-mono">{fmtCurrency(currentValue)}</p>
-      {/* Gain/Loss $ */}
-      <p className={`text-sm tabular-nums text-right font-mono font-semibold ${isGain ? "text-green-400" : "text-red-400"}`}>
-        {isGain ? "+" : "-"}{fmtCurrency(gain)}
-      </p>
-      {/* Gain/Loss % */}
-      <p className={`text-sm tabular-nums text-right font-mono font-bold ${isGain ? "text-green-400" : "text-red-400"}`}>
-        {fmtPct(gainPct)}
-      </p>
-      {/* Actions */}
-      <div className="flex items-center gap-1 justify-end">
-        <button onClick={() => onEdit(pos)} className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-          <Edit2 className="w-3.5 h-3.5" />
-        </button>
-        <button onClick={() => onDelete(pos.id)} className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors">
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-3">
+        {[
+          { label: "Shares",     value: pos.shares.toLocaleString(),                              color: "" },
+          { label: "Avg Cost",   value: `$${pos.avgCost.toFixed(2)}`,                             color: "text-muted-foreground" },
+          { label: "Live Price", value: `$${price.toFixed(2)}`,                                   color: livePrice ? "text-foreground" : "text-muted-foreground" },
+          { label: "Value",      value: fmtCurrency(currentValue),                                color: "text-foreground font-bold" },
+          { label: "Gain/Loss",  value: `${isGain ? "+" : "-"}${fmtCurrency(Math.abs(gain))}`,   color: isGain ? "text-green-400 font-bold" : "text-red-400 font-bold" },
+          { label: "Return",     value: fmtPct(gainPct),                                          color: isGain ? "text-green-400 font-bold" : "text-red-400 font-bold" },
+        ].map(s => (
+          <div key={s.label} className="rounded-lg bg-secondary/30 px-3 py-2">
+            <p className="text-xs text-muted-foreground/60 mb-0.5">{s.label}</p>
+            <p className={`text-sm tabular-nums font-mono ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ─── Add/Edit Position Modal ──────────────────────────────────────────────────
+// ─── Add/Edit Position Drawer ─────────────────────────────────────────────────
 function PositionModal({ position, onSave, onClose }: { position?: Position; onSave: (p: Omit<Position, "id">) => void; onClose: () => void }) {
-  const [ticker, setTicker] = useState(position?.ticker || "");
-  const [name, setName]     = useState(position?.name || "");
-  const [shares, setShares] = useState(position?.shares || 1);
-  const [avgCost, setAvgCost] = useState(position?.avgCost || 0);
-  const [date, setDate]     = useState(position?.purchaseDate || new Date().toISOString().split("T")[0]);
-  const [notes, setNotes]   = useState(position?.notes || "");
+  const [ticker, setTicker]   = useState(position?.ticker || "");
+  const [name, setName]       = useState(position?.name || "");
+  const [shares, setShares]   = useState<number | "">(position?.shares ?? "");
+  const [avgCost, setAvgCost] = useState<number | "">(position?.avgCost ?? "");
+  const [date, setDate]       = useState(position?.purchaseDate || new Date().toISOString().split("T")[0]);
+  const [notes, setNotes]     = useState(position?.notes || "");
 
-  const field = "w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50";
+  const sharesNum  = typeof shares === "number" ? shares : 0;
+  const costNum    = typeof avgCost === "number" ? avgCost : 0;
+  const costBasis  = sharesNum * costNum;
+  const canSave    = ticker.trim().length > 0 && sharesNum > 0 && costNum > 0;
+
+  const lbl   = "block text-xs text-muted-foreground uppercase tracking-widest mb-2 font-semibold";
+  const field = "w-full px-4 py-3.5 bg-secondary/50 border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
-          <h3 className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-            {position ? "Edit Position" : "Add Position"}
-          </h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="p-5 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Ticker *</label>
-              <input type="text" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} placeholder="e.g. AAPL" className={field} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Company Name</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Apple Inc." className={field} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Shares *</label>
-              <input type="number" value={shares} onChange={e => setShares(parseFloat(e.target.value) || 0)} min={0} step={0.001} className={field} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Avg Cost / Share *</label>
-              <input type="number" value={avgCost} onChange={e => setAvgCost(parseFloat(e.target.value) || 0)} min={0} step={0.01} className={field} />
-            </div>
-          </div>
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="relative h-full w-full max-w-lg bg-card border-l border-border/40 shadow-2xl flex flex-col"
+        style={{ animation: "slideInRight 0.22s cubic-bezier(0.4,0,0.2,1)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/30 shrink-0">
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Purchase Date</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className={field} />
+            <h2 className="text-base font-bold" style={{ fontFamily: "var(--font-display)" }}>
+              {position ? `Edit ${position.ticker}` : "Add New Position"}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {position ? "Update your holding details" : "Track a new stock in your portfolio"}
+            </p>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Notes</label>
-            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" className={field} />
-          </div>
-        </div>
-        <div className="flex gap-2 px-5 pb-5">
-          <button onClick={onClose} className="flex-1 py-2 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button
-            onClick={() => { if (ticker && shares > 0 && avgCost > 0) onSave({ ticker, name: name || ticker, shares, avgCost, purchaseDate: date, notes }); }}
-            disabled={!ticker || shares <= 0 || avgCost <= 0}
-            className="flex-1 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            onClick={onClose}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
-            {position ? "Save Changes" : "Add Position"}
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+          {/* Ticker + Company */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={lbl}>Ticker <span className="text-red-400 normal-case">*</span></label>
+              <input
+                type="text" value={ticker}
+                onChange={e => setTicker(e.target.value.toUpperCase())}
+                placeholder="AAPL"
+                maxLength={6}
+                autoFocus
+                className={`${field} font-mono font-bold text-primary text-lg tracking-widest`}
+              />
+            </div>
+            <div>
+              <label className={lbl}>Company Name</label>
+              <input
+                type="text" value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Apple Inc."
+                className={field}
+              />
+            </div>
+          </div>
+
+          {/* Shares + Avg Cost */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={lbl}>Shares <span className="text-red-400 normal-case">*</span></label>
+              <input
+                type="number" value={shares}
+                onChange={e => setShares(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                min={0} step={0.001}
+                placeholder="100"
+                className={`${field} font-mono`}
+              />
+            </div>
+            <div>
+              <label className={lbl}>Avg Cost / Share <span className="text-red-400 normal-case">*</span></label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
+                <input
+                  type="number" value={avgCost}
+                  onChange={e => setAvgCost(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  min={0} step={0.01}
+                  placeholder="0.00"
+                  className={`${field} pl-7 font-mono`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Live cost basis preview */}
+          <div className={`rounded-xl border px-4 py-3 flex items-center justify-between transition-all ${costBasis > 0 ? "bg-primary/5 border-primary/20" : "bg-secondary/30 border-border/20"}`}>
+            <div>
+              <p className="text-xs text-muted-foreground">Total cost basis</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">shares × avg cost</p>
+            </div>
+            <p className={`text-xl font-bold font-mono tabular-nums ${costBasis > 0 ? "text-foreground" : "text-muted-foreground/30"}`}>
+              {costBasis > 0 ? fmtCurrency(costBasis) : "$—"}
+            </p>
+          </div>
+
+          {/* Purchase Date */}
+          <div>
+            <label className={lbl}>Purchase Date</label>
+            <input
+              type="date" value={date}
+              onChange={e => setDate(e.target.value)}
+              className={field}
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className={lbl}>
+              Notes
+              <span className="text-muted-foreground/40 font-normal normal-case tracking-normal ml-1">(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Long-term hold, earnings play, sector hedge…"
+              rows={3}
+              className={`${field} resize-none`}
+            />
+          </div>
+
+          {/* Validation hint */}
+          {!canSave && ticker && (
+            <p className="text-xs text-red-400/80 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+              Ticker, shares, and avg cost are required to save.
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-5 border-t border-border/30 flex gap-3 shrink-0">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3.5 text-sm border border-border rounded-xl text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { if (canSave) onSave({ ticker, name: name || ticker, shares: sharesNum, avgCost: costNum, purchaseDate: date, notes }); }}
+            disabled={!canSave}
+            className="flex-[2] py-3.5 text-sm bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {position ? "Save Changes" : "Add to Portfolio"}
           </button>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -655,15 +788,7 @@ export default function Settings() {
 
           {/* Position table */}
           <div className="lg:col-span-2 rounded-xl bg-secondary/30 border border-border/30 overflow-hidden">
-            {/* Table header */}
-            <div
-              className="grid items-center gap-3 px-4 py-2.5 border-b border-border/30 bg-muted/30"
-              style={{ gridTemplateColumns: "1fr 5rem 5rem 5rem 6rem 6rem 6rem 5.5rem" }}
-            >
-              {["Position", "Shares", "Avg Cost", "Price", "Value", "Gain $", "Gain %", ""].map((h, i) => (
-                <p key={i} className={`text-xs text-muted-foreground font-semibold uppercase tracking-wider ${i >= 1 ? "text-right" : ""} ${i === 7 ? "text-center" : ""}`}>{h}</p>
-              ))}
-            </div>
+            {/* No fixed header — each row is self-labeled */}
             {positions.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-sm">
                 No positions yet. Add your first holding below.
