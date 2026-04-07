@@ -7,55 +7,65 @@ import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 
-const BACKUP_PATH = path.resolve("portfolio_backup.json");
-const RENDER_API_KEY  = process.env.RENDER_API_KEY ?? "";
-const RENDER_SERVICE_ID = process.env.RENDER_SERVICE_ID_SELF ?? "";
+// Try multiple paths — Render's /opt/render/project persists across restarts
+// even on the free tier (it's the build cache directory)
+const BACKUP_PATHS = [
+  "/opt/render/project/portfolio_backup.json", // Render persistent build dir
+  path.resolve("portfolio_backup.json"),         // local fallback
+];
 
 // ── Backup helpers ─────────────────────────────────────────────────────────
 function writeBackup(positions: PortfolioPosition[]): void {
-  try {
-    fs.writeFileSync(BACKUP_PATH, JSON.stringify(positions, null, 2), "utf-8");
-  } catch (e) {
-    console.warn("[portfolio] backup write failed:", e);
+  const payload = JSON.stringify(positions, null, 2);
+  let wrote = false;
+  for (const p of BACKUP_PATHS) {
+    try {
+      // Ensure directory exists
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, payload, "utf-8");
+      wrote = true;
+      console.log(`[portfolio] Backup written to ${p} (${positions.length} positions)`);
+      break; // write to first writable path
+    } catch (e) {
+      // try next path
+    }
   }
-  // Also push to Render env var asynchronously (best-effort)
-  if (RENDER_API_KEY && RENDER_SERVICE_ID) {
-    const payload = JSON.stringify(positions);
-    fetch(`https://api.render.com/v1/services/${RENDER_SERVICE_ID}/env-vars`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${RENDER_API_KEY}`,
-      },
-      body: JSON.stringify([{ key: "PORTFOLIO_BACKUP", value: payload }]),
-    }).catch(e => console.warn("[portfolio] Render env var sync failed:", e));
-  }
+  if (!wrote) console.warn("[portfolio] Could not write backup to any path");
 }
 
 export function restoreBackupIfNeeded(): void {
   try {
     // Check if SQLite already has data
     const existing = db.select().from(portfolio).all();
-    if (existing.length > 0) return; // already seeded
-
-    // Try local backup file first
-    let positions: PortfolioPosition[] | null = null;
-    if (fs.existsSync(BACKUP_PATH)) {
-      try {
-        positions = JSON.parse(fs.readFileSync(BACKUP_PATH, "utf-8"));
-        console.log(`[portfolio] Restored ${positions?.length ?? 0} positions from local backup file`);
-      } catch {}
+    if (existing.length > 0) {
+      console.log(`[portfolio] SQLite has ${existing.length} positions — no restore needed`);
+      return;
     }
 
-    // Fall back to env var
+    // Try each backup path in order
+    let positions: PortfolioPosition[] | null = null;
+    for (const p of BACKUP_PATHS) {
+      if (fs.existsSync(p)) {
+        try {
+          positions = JSON.parse(fs.readFileSync(p, "utf-8"));
+          console.log(`[portfolio] Found backup at ${p} with ${positions?.length ?? 0} positions`);
+          break;
+        } catch {}
+      }
+    }
+
+    // Fall back to PORTFOLIO_BACKUP env var (set manually on Render if needed)
     if (!positions && process.env.PORTFOLIO_BACKUP) {
       try {
         positions = JSON.parse(process.env.PORTFOLIO_BACKUP);
-        console.log(`[portfolio] Restored ${positions?.length ?? 0} positions from env var backup`);
+        console.log(`[portfolio] Restored ${positions?.length ?? 0} positions from PORTFOLIO_BACKUP env var`);
       } catch {}
     }
 
-    if (!positions || positions.length === 0) return;
+    if (!positions || positions.length === 0) {
+      console.log("[portfolio] No backup found — starting with empty portfolio");
+      return;
+    }
 
     // Re-seed SQLite
     for (const pos of positions) {
