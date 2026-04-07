@@ -9,6 +9,7 @@ import {
   BarChart2, Zap, Clock, Sliders,
   Scale, List, Globe, ChevronDown, ChevronUp,
   Building2, Activity, MonitorPlay, Calculator,
+  Moon, Sun, Palette,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -1056,6 +1057,106 @@ export default function Settings() {
             Export to Excel (.xlsx)
           </button>
         </div>
+      </Section>
+
+      {/* ─── APPEARANCE SETTINGS ───────────────────────────────────────────── */}
+      <Section title="Appearance" icon={Palette}>
+        {/* Theme */}
+        <SettingRow label="Theme" description="Choose light or dark interface">
+          <div className="flex gap-2">
+            <button
+              onClick={() => update({ theme: "dark" })}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all ${
+                settings.theme === "dark"
+                  ? "bg-zinc-900 text-white border-primary"
+                  : "bg-zinc-800 text-zinc-400 border-border hover:border-zinc-500"
+              }`}
+            >
+              <Moon className="w-4 h-4" />
+              Dark
+            </button>
+            <button
+              onClick={() => update({ theme: "light" })}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all ${
+                settings.theme === "light"
+                  ? "bg-zinc-100 text-zinc-900 border-primary"
+                  : "bg-zinc-800 text-zinc-400 border-border hover:border-zinc-500"
+              }`}
+            >
+              <Sun className="w-4 h-4" />
+              Light
+            </button>
+          </div>
+        </SettingRow>
+
+        {/* Accent Color */}
+        <SettingRow label="Accent Color" description="Primary highlight color throughout the app">
+          <div className="flex items-center gap-3">
+            {([
+              { key: "teal",   color: "hsl(185,80%,50%)"  },
+              { key: "blue",   color: "hsl(217,91%,60%)"  },
+              { key: "green",  color: "hsl(142,71%,45%)"  },
+              { key: "purple", color: "hsl(265,70%,60%)"  },
+              { key: "orange", color: "hsl(30,90%,55%)"   },
+            ] as const).map(({ key, color }) => (
+              <button
+                key={key}
+                title={key.charAt(0).toUpperCase() + key.slice(1)}
+                onClick={() => update({ accentColor: key })}
+                className="w-7 h-7 rounded-full transition-all focus:outline-none"
+                style={{
+                  backgroundColor: color,
+                  boxShadow: settings.accentColor === key
+                    ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${color}`
+                    : "none",
+                  transform: settings.accentColor === key ? "scale(1.15)" : "scale(1)",
+                }}
+              />
+            ))}
+          </div>
+        </SettingRow>
+
+        {/* Font Size */}
+        <SettingRow label="Font Size" description="Base text size across the platform">
+          <div className="flex gap-2">
+            {([
+              { key: "compact",     label: "Compact",     sample: "text-[11px]" },
+              { key: "normal",      label: "Normal",      sample: "text-[13px]" },
+              { key: "comfortable", label: "Comfortable", sample: "text-[15px]" },
+            ] as const).map(({ key, label, sample }) => (
+              <button
+                key={key}
+                onClick={() => update({ fontSize: key })}
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                  settings.fontSize === key
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-zinc-500 hover:text-foreground"
+                }`}
+              >
+                <span className={sample}>Aa</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </SettingRow>
+
+        {/* Compact Mode */}
+        <SettingRow label="Compact Mode" description="Reduce spacing for more data on screen">
+          <button
+            onClick={() => update({ compactMode: !settings.compactMode })}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full border-2 transition-colors focus:outline-none ${
+              settings.compactMode
+                ? "bg-primary border-primary"
+                : "bg-secondary border-border"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                settings.compactMode ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </SettingRow>
       </Section>
 
       {/* ─── PLATFORM SETTINGS ────────────────────────────────────────────── */}

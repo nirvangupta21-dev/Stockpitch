@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // ── 15-minute intro skip via cookie (cookies work; localStorage is blocked) ──
 const COOKIE = "vrd_entered";
@@ -28,25 +28,41 @@ import StockExplorer from "./pages/StockExplorer";
 import Settings from "./pages/Settings";
 import BubbleAnalysis from "./pages/BubbleAnalysis";
 import IPOListings from "./pages/IPOListings";
-import { SettingsProvider } from "./lib/settings";
-import { TrendingUp, Scale, Globe, List, Settings2, Activity, Building2 } from "lucide-react";
+import StockComparison from "./pages/StockComparison";
+import { SettingsProvider, useSettings } from "./lib/settings";
+import { TrendingUp, Scale, Globe, List, Settings2, Activity, Building2, BarChart2 } from "lucide-react";
 
 const TABS = [
-  { id: "dashboard", label: "Dashboard",    icon: TrendingUp },
-  { id: "fairvalue", label: "Fair Value",   icon: Scale },
-  { id: "explorer",  label: "Stocks",       icon: List },
-  { id: "ipos",      label: "IPOs",         icon: Building2 },
-  { id: "bubble",    label: "Bubble",       icon: Activity },
-  { id: "news",      label: "News & Events",icon: Globe },
-  { id: "settings",  label: "My Portfolio", icon: Settings2 },
+  { id: "dashboard",  label: "Dashboard",    icon: TrendingUp },
+  { id: "fairvalue",  label: "Fair Value",   icon: Scale },
+  { id: "compare",    label: "Compare",      icon: BarChart2 },
+  { id: "explorer",   label: "Stocks",       icon: List },
+  { id: "ipos",       label: "IPOs",         icon: Building2 },
+  { id: "bubble",     label: "Bubble",       icon: Activity },
+  { id: "news",       label: "News & Events",icon: Globe },
+  { id: "settings",   label: "My Portfolio", icon: Settings2 },
 ];
 
-type TabId = "dashboard" | "fairvalue" | "explorer" | "ipos" | "bubble" | "news" | "settings";
+type TabId = "dashboard" | "fairvalue" | "compare" | "explorer" | "ipos" | "bubble" | "news" | "settings";
 
 function AppInner() {
+  const { settings } = useSettings();
   const [entered, setEntered] = useState(() => hasRecentSession());
   const [tab, setTab]       = useState<TabId>("dashboard");
   const [ticker, setTicker] = useState<string | null>(null); // null = landing state
+
+  useEffect(() => {
+    const root = document.documentElement;
+    // Theme
+    root.classList.toggle("dark", settings.theme === "dark");
+    root.classList.toggle("light", settings.theme === "light");
+    // Accent
+    root.setAttribute("data-accent", settings.accentColor);
+    // Font size
+    root.setAttribute("data-fontsize", settings.fontSize);
+    // Compact
+    root.classList.toggle("compact", settings.compactMode);
+  }, [settings.theme, settings.accentColor, settings.fontSize, settings.compactMode]);
 
   const handleSelect = useCallback((t: string) => {
     setTicker(t.toUpperCase());
@@ -100,6 +116,7 @@ function AppInner() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {tab === "dashboard" && <Dashboard ticker={ticker} onTickerChange={t => setTicker(t ?? null)} />}
         {tab === "fairvalue" && <FairValue ticker={ticker ?? "AAPL"} />}
+        {tab === "compare"   && <StockComparison />}
         {tab === "explorer"  && (
           <StockExplorer onSelectTicker={t => { setTicker(t); setTab("dashboard"); }} />
         )}

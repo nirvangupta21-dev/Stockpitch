@@ -1,5 +1,5 @@
 /**
- * Fair Value Analysis — Quantitative Edition
+ * Fair Value Analysis — Quantitative Edition (Enhanced)
  *
  * 100% self-contained. Uses only:
  *   /api/quote/:ticker  — price, 52W high/low, exchange, prev close
@@ -14,6 +14,8 @@
  *   3. 52-Week Range Position        — where price sits vs yearly range
  *   4. Momentum-Adjusted Target      — trend + momentum score blended
  *   5. Volume-Weighted Fair Value    — VWAP over the full history window
+ *   6. Graham Number                 — derived Graham formula from vol-implied PE
+ *   7. Historical PE Mean Reversion  — fair value via price-to-mean ratio signal
  */
 
 import { useMemo, useState } from "react";
@@ -25,7 +27,7 @@ import {
   CartesianGrid, Tooltip, Cell, ReferenceLine,
   LineChart, Line, Area, AreaChart,
 } from "recharts";
-import { Scale, TrendingUp, TrendingDown, Minus, RefreshCw, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Scale, TrendingUp, TrendingDown, Minus, RefreshCw, Info, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -108,6 +110,16 @@ function momentumScore(closes: number[]): number {
   return Math.max(-100, Math.min(100, mean(scores)));
 }
 
+// Percentile helper
+function percentile(arr: number[], p: number): number {
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
 // ─── Formatter helpers ────────────────────────────────────────────────────────
 const fd = (v: number | null | undefined, dec = 2) =>
   v == null ? "—" : v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -172,13 +184,29 @@ export default function FairValue({ ticker }: { ticker: string }) {
     // Regression trend + momentum tilt
     const momAdj = regressionTarget * (1 + mom * 0.001);
 
-    // ── Composite fair value (equal weight) ──
+    // ── Annual volatility ──
+    const volAnn = annualVol(closes);
+
+    // ── Graham Number (new model) ──
+    // Derive EPS and BVPS from vol-implied PE estimate
+    const peEstimate = Math.max(10, 25 - volAnn / 3);
+    const epsEst = price / peEstimate;
+    const bvpsEst = price / 2.5;
+    const graham = Math.sqrt(22.5 * epsEst * bvpsEst);
+
+    // ── Historical PE Mean Reversion (new model) ──
+    const ratio = price / mu;
+    const hpe = ratio > 1.2 ? mu * 1.1 : ratio < 0.8 ? mu * 0.9 : mu;
+
+    // ── Composite fair value (updated weights, 7 models) ──
     const models = [
-      { label: "Linear Trend",    value: regressionTarget, weight: 0.30, color: "hsl(185,80%,50%)" },
-      { label: "Mean Reversion",  value: meanRevTarget,    weight: 0.25, color: "hsl(265,70%,60%)" },
-      { label: "52W Midpoint",    value: rangeMid,         weight: 0.15, color: "hsl(45,90%,55%)"  },
-      { label: "VWAP",            value: vwapVal,          weight: 0.20, color: "hsl(200,80%,60%)" },
+      { label: "Linear Trend",    value: regressionTarget, weight: 0.25, color: "hsl(185,80%,50%)" },
+      { label: "Mean Reversion",  value: meanRevTarget,    weight: 0.20, color: "hsl(265,70%,60%)" },
+      { label: "VWAP",            value: vwapVal,          weight: 0.15, color: "hsl(200,80%,60%)" },
+      { label: "52W Midpoint",    value: rangeMid,         weight: 0.10, color: "hsl(45,90%,55%)"  },
       { label: "Momentum Target", value: momAdj,           weight: 0.10, color: "hsl(142,71%,45%)" },
+      { label: "Graham Number",   value: graham,           weight: 0.10, color: "hsl(30,90%,55%)"  },
+      { label: "Historical PE",   value: hpe,              weight: 0.10, color: "hsl(300,60%,55%)" },
     ].filter(m => m.value > 0 && isFinite(m.value));
 
     const totalW = models.reduce((s, m) => s + m.weight, 0);
@@ -190,7 +218,6 @@ export default function FairValue({ ticker }: { ticker: string }) {
     const sma20   = sma(closes, 20);
     const sma50   = sma(closes, 50);
     const sma200  = sma(closes, 200);
-    const volAnn  = annualVol(closes);
 
     // ── Bollinger Bands (20-day) ──
     const bb20closes = closes.slice(-20);
@@ -238,6 +265,82 @@ export default function FairValue({ ticker }: { ticker: string }) {
       });
     }
 
+    // ── Price Target Predictor ──
+    // Use last 252 days of closes (or all if fewer)
+    const reg252Closes = closes.slice(-252);
+    const reg252 = linReg(reg252Closes);
+    const n252 = reg252Closes.length;
+    // Compute residuals std dev
+    const residuals = reg252Closes.map((v, i) => v - (reg252.intercept + reg252.slope * i));
+    const residStd = stdDev(residuals);
+    // Anchor: value at last point on the regression line
+    const reg252Now = reg252.intercept + reg252.slope * (n252 - 1);
+    // Delta from actual price to regression now (anchoring)
+    const anchorDelta = price - reg252Now;
+
+    const priceTargets = [30, 60, 90].map(days => {
+      const regProjected = reg252.intercept + reg252.slope * (n252 - 1 + days);
+      const target = regProjected + anchorDelta;
+      const confidence = residStd * Math.sqrt(days / 252) * price / reg252Now;
+      const pctChange = ((target - price) / price) * 100;
+      return { days, target, confidence, pctChange };
+    });
+
+    // Confidence band mini chart: 30 days historical + 90 days forward
+    const confChartDays = 30;
+    const confChartData: Array<{
+      label: string;
+      price?: number;
+      upper?: number;
+      lower?: number;
+      mid?: number;
+    }> = [];
+    // Historical segment (last confChartDays days)
+    for (let i = confChartDays; i >= 1; i--) {
+      const idx = closes.length - i;
+      confChartData.push({
+        label: `-${i}d`,
+        price: closes[idx] ?? undefined,
+        upper: undefined,
+        lower: undefined,
+        mid: undefined,
+      });
+    }
+    // Today
+    confChartData.push({ label: "Now", price, upper: price, lower: price, mid: price });
+    // Forward: 90 days confidence band
+    for (let d = 1; d <= 90; d++) {
+      const regProj = reg252.intercept + reg252.slope * (n252 - 1 + d);
+      const midTarget = regProj + anchorDelta;
+      const conf = residStd * Math.sqrt(d / 252) * price / Math.max(0.001, reg252Now);
+      confChartData.push({
+        label: d % 30 === 0 ? `+${d}d` : "",
+        price: undefined,
+        upper: parseFloat((midTarget + conf).toFixed(2)),
+        lower: parseFloat((midTarget - conf).toFixed(2)),
+        mid: parseFloat(midTarget.toFixed(2)),
+      });
+    }
+
+    // ── Risk Score ──
+    let riskScore = 0;
+    riskScore += Math.min(3, volAnn / 15);                           // vol component (0-3)
+    riskScore += rsiVal > 70 ? 2 : rsiVal < 30 ? 0 : 1;            // RSI component (0-2)
+    riskScore += price > bbUpper ? 2 : price < bbLower ? 0 : 1;    // Bollinger component (0-2)
+    riskScore += trendUp ? 0 : 2;                                    // trend component (0-2)
+    riskScore += rangePos > 85 ? 1 : 0;                             // near 52W high (0-1)
+    const riskScoreRounded = Math.round(Math.min(10, Math.max(1, riskScore)));
+
+    // ── Bull / Base / Bear Scenarios ──
+    const last90 = closes.slice(-90);
+    const bullPrice = percentile(last90, 75) * (1 + Math.max(0, mom / 100) * 0.15);
+    const bearPrice = percentile(last90, 25) * (1 - volAnn / 200);
+    const basePrice = fair ?? price;
+
+    const bullUpside = ((bullPrice - price) / price) * 100;
+    const bearUpside = ((bearPrice - price) / price) * 100;
+    const baseUpside = ((basePrice - price) / price) * 100;
+
     return {
       price, fair, upside, models,
       rsiVal, sma20, sma50, sma200, volAnn,
@@ -250,6 +353,12 @@ export default function FairValue({ ticker }: { ticker: string }) {
       chartPts,
       mom,
       reg,
+      // new
+      priceTargets,
+      confChartData,
+      riskScoreRounded,
+      bullPrice, bearPrice, basePrice,
+      bullUpside, bearUpside, baseUpside,
     };
   }, [hist, quote, forecastDays]);
 
@@ -282,6 +391,21 @@ export default function FairValue({ ticker }: { ticker: string }) {
   ] : [];
 
   const price = analytics?.price ?? 0;
+
+  // Risk score display helpers
+  const riskScore = analytics?.riskScoreRounded ?? 5;
+  const riskColor =
+    riskScore <= 3 ? "text-green-400" :
+    riskScore <= 6 ? "text-yellow-400" :
+    "text-red-400";
+  const riskBg =
+    riskScore <= 3 ? "bg-green-500/10 border-green-500/30" :
+    riskScore <= 6 ? "bg-yellow-500/10 border-yellow-500/30" :
+    "bg-red-500/10 border-red-500/30";
+  const riskLabel =
+    riskScore <= 3 ? "Low Risk" :
+    riskScore <= 6 ? "Moderate Risk" :
+    "High Risk";
 
   return (
     <div className="space-y-5">
@@ -321,6 +445,143 @@ export default function FairValue({ ticker }: { ticker: string }) {
         </div>
       ) : (
         <>
+          {/* ══════════════════════════════════════════════════════════════
+              NEW: Price Target Predictor
+          ══════════════════════════════════════════════════════════════ */}
+          <div className="rounded-xl bg-card border border-border/50 p-5">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+                Price Target Predictor
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                OLS regression on last 252 trading days · ±1σ residual confidence bands
+              </p>
+            </div>
+
+            {/* Three target cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              {analytics.priceTargets.map(({ days, target, confidence, pctChange }) => {
+                const isUp = target >= price;
+                const targetColor = isUp ? "text-green-400" : "text-red-400";
+                const cardBg = isUp
+                  ? "bg-green-500/5 border-green-500/20"
+                  : "bg-red-500/5 border-red-500/20";
+                return (
+                  <div key={days} className={`rounded-xl border p-4 ${cardBg}`}>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
+                      {days}-Day Target
+                    </p>
+                    <p className={`text-2xl font-bold font-mono tabular-nums ${targetColor}`}
+                       style={{ fontFamily: "var(--font-display)" }}>
+                      ${fd(target)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ±${fd(confidence, 2)} confidence
+                    </p>
+                    <div className={`mt-2 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      isUp ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                    }`}>
+                      {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(1)}%
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Confidence band mini chart */}
+            <div style={{ height: 160 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={analytics.confChartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                  <defs>
+                    <linearGradient id="confBandGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="hsl(185,80%,50%)" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="hsl(185,80%,50%)" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(0,0%,12%)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 9, fill: "hsl(0,0%,35%)" }}
+                    axisLine={false} tickLine={false}
+                    interval={14}
+                  />
+                  <YAxis
+                    tickFormatter={v => `$${v >= 1000 ? (v/1000).toFixed(1)+"k" : v.toFixed(0)}`}
+                    tick={{ fontSize: 9, fill: "hsl(0,0%,35%)", fontFamily: "var(--font-mono)" }}
+                    axisLine={false} tickLine={false} width={48}
+                    domain={["auto", "auto"]}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-xl space-y-1">
+                          <p className="text-muted-foreground font-medium">{label}</p>
+                          {payload.map((p: any) => p.value != null && (
+                            <p key={p.dataKey} style={{ color: p.color ?? "white" }} className="tabular-nums font-semibold">
+                              {p.name}: ${fd(p.value)}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }}
+                  />
+                  {/* Confidence band (upper-lower shaded area) */}
+                  <Area
+                    type="monotone"
+                    dataKey="upper"
+                    name="Upper Band"
+                    stroke="hsl(185,80%,50%)"
+                    strokeWidth={1}
+                    strokeDasharray="3 2"
+                    fill="url(#confBandGrad)"
+                    dot={false}
+                    connectNulls={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="lower"
+                    name="Lower Band"
+                    stroke="hsl(185,60%,45%)"
+                    strokeWidth={1}
+                    strokeDasharray="3 2"
+                    fill="hsl(185,80%,50%)"
+                    fillOpacity={0}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                  {/* Mid projection line */}
+                  <Line
+                    type="monotone"
+                    dataKey="mid"
+                    name="Projected"
+                    stroke="hsl(45,90%,55%)"
+                    strokeWidth={1.5}
+                    strokeDasharray="5 3"
+                    dot={false}
+                    connectNulls={false}
+                  />
+                  {/* Historical price line */}
+                  <Line
+                    type="monotone"
+                    dataKey="price"
+                    name="Price"
+                    stroke="hsl(185,80%,60%)"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[hsl(185,80%,60%)] inline-block" /> Price</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[hsl(45,90%,55%)] inline-block" style={{ borderTop: "1px dashed" }} /> Projected</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[hsl(185,80%,50%)] inline-block opacity-50" /> Confidence Band</span>
+            </div>
+          </div>
+
           {/* ── Verdict card ── */}
           <div className={`rounded-xl border p-5 ${vBg}`}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
@@ -342,6 +603,21 @@ export default function FairValue({ ticker }: { ticker: string }) {
                     <> · Fair value <span className="text-foreground font-mono font-semibold">${fd(analytics.fair)}</span></>
                   )}
                 </p>
+              </div>
+
+              {/* ══ NEW: Risk Score Badge ══ */}
+              <div className={`flex flex-col items-center justify-center rounded-xl border px-5 py-3 shrink-0 ${riskBg}`}
+                   title={`Risk Score ${riskScore}/10 — driven by volatility (${analytics.volAnn.toFixed(0)}% ann. vol), RSI (${analytics.rsiVal.toFixed(1)}), Bollinger position, trend direction, and 52W range proximity`}>
+                <Shield className={`w-4 h-4 mb-1 ${riskColor}`} />
+                <span className={`text-3xl font-bold tabular-nums ${riskColor}`}
+                      style={{ fontFamily: "var(--font-display)" }}>
+                  {riskScore}
+                </span>
+                <span className="text-xs text-muted-foreground mt-0.5">Risk Score</span>
+                <span className={`text-xs font-semibold mt-0.5 ${riskColor}`}>{riskLabel}</span>
+                <span className="text-xs text-muted-foreground/60 mt-1 text-center leading-tight max-w-[100px]" style={{ fontSize: "10px" }}>
+                  Vol · RSI · BB · Trend · Range
+                </span>
               </div>
 
               {/* Gauge */}
@@ -526,6 +802,78 @@ export default function FairValue({ ticker }: { ticker: string }) {
             </div>
           </div>
 
+          {/* ══════════════════════════════════════════════════════════════
+              NEW: Bull / Base / Bear Scenarios
+          ══════════════════════════════════════════════════════════════ */}
+          <div className="rounded-xl bg-card border border-border/50 p-5">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+                Scenarios
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Probabilistic price range from price channel analysis
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+              {/* Bull */}
+              <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Bull</span>
+                </div>
+                <p className="text-2xl font-bold font-mono tabular-nums text-green-400"
+                   style={{ fontFamily: "var(--font-display)" }}>
+                  ${fd(analytics.bullPrice)}
+                </p>
+                <div className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-400`}>
+                  {analytics.bullUpside >= 0 ? "+" : ""}{analytics.bullUpside.toFixed(1)}% vs current
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                  Based on upper price channel + momentum
+                </p>
+              </div>
+
+              {/* Base */}
+              <div className="rounded-xl border border-border/50 bg-secondary/20 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Minus className="w-4 h-4 text-foreground/60" />
+                  <span className="text-xs font-bold text-foreground/60 uppercase tracking-widest">Base</span>
+                </div>
+                <p className="text-2xl font-bold font-mono tabular-nums text-foreground"
+                   style={{ fontFamily: "var(--font-display)" }}>
+                  ${fd(analytics.basePrice)}
+                </p>
+                <div className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  analytics.baseUpside >= 0 ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                }`}>
+                  {analytics.baseUpside >= 0 ? "+" : ""}{analytics.baseUpside.toFixed(1)}% vs current
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                  Composite of {analytics.models.length} quantitative models
+                </p>
+              </div>
+
+              {/* Bear */}
+              <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingDown className="w-4 h-4 text-red-400" />
+                  <span className="text-xs font-bold text-red-400 uppercase tracking-widest">Bear</span>
+                </div>
+                <p className="text-2xl font-bold font-mono tabular-nums text-red-400"
+                   style={{ fontFamily: "var(--font-display)" }}>
+                  ${fd(analytics.bearPrice)}
+                </p>
+                <div className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
+                  {analytics.bearUpside >= 0 ? "+" : ""}{analytics.bearUpside.toFixed(1)}% vs current
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                  Based on lower price channel under stress
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* ── Technicals + Returns grid ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -687,11 +1035,16 @@ export default function FairValue({ ticker }: { ticker: string }) {
             </button>
             {showMethod && (
               <div className="px-5 pb-5 border-t border-border/30 pt-4 text-xs text-muted-foreground space-y-2 leading-relaxed">
-                <p><strong className="text-foreground">Linear Trend (30%):</strong> Ordinary least-squares regression on the full 1Y price history, projected forward by the selected forecast window. Captures the stock's directional trajectory.</p>
-                <p><strong className="text-foreground">Mean Reversion (25%):</strong> Weighted blend of the 1Y price mean (60%) and current price (40%), reflecting the statistical tendency of prices to revert toward their long-run average.</p>
-                <p><strong className="text-foreground">VWAP (20%):</strong> Volume-weighted average price over the full 1-year window. Institutional traders treat VWAP as a key fair-value anchor — divergence from VWAP signals over- or under-extension.</p>
-                <p><strong className="text-foreground">52W Midpoint (15%):</strong> The arithmetic midpoint of the 52-week high and low. Acts as a range-based fair value — useful for mean-reversion signals in trending markets.</p>
+                <p><strong className="text-foreground">Linear Trend (25%):</strong> Ordinary least-squares regression on the full 1Y price history, projected forward by the selected forecast window. Captures the stock's directional trajectory.</p>
+                <p><strong className="text-foreground">Mean Reversion (20%):</strong> Weighted blend of the 1Y price mean (60%) and current price (40%), reflecting the statistical tendency of prices to revert toward their long-run average.</p>
+                <p><strong className="text-foreground">VWAP (15%):</strong> Volume-weighted average price over the full 1-year window. Institutional traders treat VWAP as a key fair-value anchor — divergence from VWAP signals over- or under-extension.</p>
+                <p><strong className="text-foreground">52W Midpoint (10%):</strong> The arithmetic midpoint of the 52-week high and low. Acts as a range-based fair value — useful for mean-reversion signals in trending markets.</p>
                 <p><strong className="text-foreground">Momentum Target (10%):</strong> The regression target adjusted by a momentum score derived from 20/50/90/200-day returns, reflecting whether current price momentum supports or contradicts the trend.</p>
+                <p><strong className="text-foreground">Graham Number (10%):</strong> Derived from Benjamin Graham's intrinsic value formula. PE estimate is inferred from annualised volatility (higher vol implies lower PE). Graham = √(22.5 × EPS × BVPS), where EPS = price ÷ PE_est and BVPS = price ÷ 2.5.</p>
+                <p><strong className="text-foreground">Historical PE Mean Reversion (10%):</strong> Compares current price to the 1Y mean as a valuation signal. If price/mean &gt; 1.2 the stock appears stretched (target = mean × 1.1); if &lt; 0.8 it appears cheap (target = mean × 0.9); otherwise target = mean.</p>
+                <p><strong className="text-foreground">Price Target Predictor:</strong> Uses OLS regression on the last 252 trading days, projected 30/60/90 days forward. Confidence bands are ±1 standard deviation of regression residuals, scaled by √(days/252) to represent uncertainty growth over time.</p>
+                <p><strong className="text-foreground">Risk Score (1–10):</strong> Composite of five components — volatility (0–3), RSI position (0–2), Bollinger Band position (0–2), trend direction (0–2), and 52W range proximity (0–1). Higher = riskier.</p>
+                <p><strong className="text-foreground">Scenarios:</strong> Bull uses the 75th percentile of the last 90-day price range, amplified by a momentum multiplier. Bear uses the 25th percentile under a volatility stress factor. Base is the composite fair value.</p>
                 <p><strong className="text-foreground">Data source:</strong> All models use only Veridian's own live price history and quote data — no external APIs, no rate limits, no downtime risk. For research purposes only — not financial advice.</p>
               </div>
             )}

@@ -71,6 +71,30 @@
   }
 }
 
+/* Accent colors */
+[data-accent="teal"]   { --accent-h: 185; --accent-s: 80%; --accent-l: 50%; }
+[data-accent="blue"]   { --accent-h: 217; --accent-s: 91%; --accent-l: 60%; }
+[data-accent="green"]  { --accent-h: 142; --accent-s: 71%; --accent-l: 45%; }
+[data-accent="purple"] { --accent-h: 265; --accent-s: 70%; --accent-l: 60%; }
+[data-accent="orange"] { --accent-h: 30;  --accent-s: 90%; --accent-l: 55%; }
+
+/* Re-map --primary to use the accent variables */
+[data-accent] {
+  --primary: var(--accent-h) var(--accent-s) var(--accent-l);
+}
+
+/* Font sizes */
+[data-fontsize="compact"]     { font-size: 13px; }
+[data-fontsize="normal"]      { font-size: 14px; }
+[data-fontsize="comfortable"] { font-size: 15px; }
+
+/* Compact mode */
+.compact .space-y-6 { --tw-space-y: 1rem; }
+.compact .p-5       { padding: 0.75rem; }
+.compact .p-6       { padding: 1rem; }
+.compact .py-6      { padding-top: 1rem; padding-bottom: 1rem; }
+.compact .gap-6     { gap: 1rem; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: hsl(var(--background)); }

@@ -30,6 +30,12 @@ export interface AppSettings {
 
   // Watchlist
   watchlist: string[];
+
+  // Appearance
+  theme: "dark" | "light";
+  accentColor: "teal" | "blue" | "green" | "purple" | "orange";
+  fontSize: "compact" | "normal" | "comfortable";
+  compactMode: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -55,6 +61,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   newsRefreshInterval: 7200000,
 
   watchlist: ["AAPL", "NVDA", "MSFT", "GOOGL", "AMZN"],
+
+  theme: "dark",
+  accentColor: "teal",
+  fontSize: "normal",
+  compactMode: false,
 };
 
 // ─── Context ──────────────────────────────────────────────────────────────────
