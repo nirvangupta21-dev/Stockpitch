@@ -1,0 +1,20 @@
+[
+  {
+    "id": "test-001",
+    "ticker": "AAPL",
+    "name": "Apple Inc.",
+    "shares": 10,
+    "avgCost": 175.5,
+    "purchaseDate": "2024-01-15",
+    "notes": ""
+  },
+  {
+    "id": "test-002",
+    "ticker": "NVDA",
+    "name": "NVIDIA Corp",
+    "shares": 5,
+    "avgCost": 820,
+    "purchaseDate": "2024-03-01",
+    "notes": "AI play"
+  }
+]

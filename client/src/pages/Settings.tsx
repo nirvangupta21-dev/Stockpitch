@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { savePortfolioToCookie, loadPortfolioFromCookie, cookieHasPositions } from "@/lib/portfolioCookie";
 import * as XLSX from "xlsx";
 import {
   Settings2, Plus, Trash2, Download, RefreshCw,
@@ -9,7 +10,7 @@ import {
   BarChart2, Zap, Clock, Sliders,
   Scale, List, Globe, ChevronDown, ChevronUp,
   Building2, Activity, MonitorPlay, Calculator,
-  Moon, Sun, Palette,
+  Moon, Sun, Palette, ArchiveRestore,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -840,26 +841,71 @@ export default function Settings() {
   const { settings, update, reset } = useSettings();
   const [modal, setModal] = useState<{ open: boolean; editing?: Position }>({ open: false });
   const [saved, setSaved] = useState(false);
+  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   // ── Load positions from server (persisted in SQLite) ─────────────────────
   const { data: positions = [], isLoading: posLoading } = useQuery<Position[]>({
     queryKey: ["/api/portfolio"],
-    queryFn: () => apiRequest("GET", "/api/portfolio").then(r => r.json()),
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/portfolio");
+      return res.json();
+    },
     staleTime: 10000,
   });
 
+  // ── Show restore banner if server is empty but cookie has saved positions ──
+  useEffect(() => {
+    if (!posLoading && positions.length === 0 && cookieHasPositions()) {
+      setShowRestoreBanner(true);
+    } else {
+      setShowRestoreBanner(false);
+    }
+  }, [posLoading, positions.length]);
+
+  // ── Save to cookie whenever positions change ───────────────────────────────
+  useEffect(() => {
+    if (!posLoading && positions.length > 0) {
+      savePortfolioToCookie(positions);
+    }
+  }, [positions, posLoading]);
+
   // ── Mutations ─────────────────────────────────────────────────────────────
   const upsertMutation = useMutation({
-    mutationFn: (pos: Position) =>
-      apiRequest("POST", "/api/portfolio", pos).then(r => r.json()),
+    mutationFn: async (pos: Position) => {
+      const res = await apiRequest("POST", "/api/portfolio", pos);
+      return res.json();
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiRequest("DELETE", `/api/portfolio/${id}`).then(r => r.json()),
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/portfolio/${id}`);
+      return res.json();
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] }),
   });
+
+  // ── Restore from cookie ────────────────────────────────────────────────────
+  const restoreFromCookie = useCallback(async () => {
+    const saved = loadPortfolioFromCookie();
+    if (!saved || saved.length === 0) return;
+    setRestoring(true);
+    try {
+      await Promise.all(
+        saved.map(pos =>
+          apiRequest("POST", "/api/portfolio", pos).then(r => r.json())
+        )
+      );
+      await queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] });
+      setShowRestoreBanner(false);
+    } catch (e) {
+      console.error("Restore failed:", e);
+    } finally {
+      setRestoring(false);
+    }
+  }, []);
 
   // Fetch live prices for all portfolio tickers
   const tickers = [...new Set(positions.map(p => p.ticker))];
@@ -1029,6 +1075,40 @@ export default function Settings() {
             </div>
           ))}
         </div>
+
+        {/* ── Cookie restore banner ───────────────────────────── */}
+        {showRestoreBanner && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <ArchiveRestore className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Saved positions found</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Your portfolio was saved in this browser. The server restarted and lost its data — click Restore to bring it back instantly.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowRestoreBanner(false)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={restoreFromCookie}
+                disabled={restoring}
+                className="px-4 py-1.5 text-xs rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+              >
+                {restoring ? (
+                  <><RefreshCw className="w-3 h-3 animate-spin" /> Restoring…</>
+                ) : (
+                  <><ArchiveRestore className="w-3 h-3" /> Restore Portfolio</>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── ROI Calculator ─────────────────────────────────── */}
         <ROICalculator currentValue={totalValue} costBasis={totalCost} />
