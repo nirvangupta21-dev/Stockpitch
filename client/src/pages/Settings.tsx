@@ -405,285 +405,236 @@ function PositionRow({
   );
 }
 
-// ─── Add/Edit Position Drawer ─────────────────────────────────────────────────
+// ─── Add/Edit Position Modal ──────────────────────────────────────────────────
 function PositionModal({ position, onSave, onClose }: { position?: Position; onSave: (p: Omit<Position, "id">) => void; onClose: () => void }) {
-  const [ticker, setTicker]         = useState(position?.ticker || "");
-  const [name, setName]             = useState(position?.name || "");
-  const [shares, setShares]         = useState<number | "">(position?.shares ?? "");
-  const [avgCost, setAvgCost]       = useState<number | "">(position?.avgCost ?? "");
-  const [date, setDate]             = useState(position?.purchaseDate || new Date().toISOString().split("T")[0]);
-  const [notes, setNotes]           = useState(position?.notes || "");
-  const [searchQuery, setSearchQuery] = useState(position?.ticker || "");
+  const [ticker, setTicker]           = useState(position?.ticker || "");
+  const [name, setName]               = useState(position?.name || "");
+  const [shares, setShares]           = useState<number | "">(position?.shares ?? "");
+  const [avgCost, setAvgCost]         = useState<number | "">(position?.avgCost ?? "");
+  const [date, setDate]               = useState(position?.purchaseDate || new Date().toISOString().split("T")[0]);
+  const [notes, setNotes]             = useState(position?.notes || "");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [tickerLocked, setTickerLocked] = useState(!!position); // true when a ticker is confirmed
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [tickerConfirmed, setTickerConfirmed] = useState(!!position);
+  const prevPrice                     = useRef<number | null>(null);
 
-  // Search results
+  // Search as user types
   const { data: searchResults = [] } = useQuery<{ ticker: string; name: string; exchange: string }[]>({
-    queryKey: ["/api/search", searchQuery],
-    queryFn: () => apiRequest("GET", `/api/search?q=${encodeURIComponent(searchQuery)}`).then(r => r.json()),
-    enabled: searchQuery.length >= 1 && !tickerLocked,
+    queryKey: ["/api/search", ticker],
+    queryFn: () => apiRequest("GET", `/api/search?q=${encodeURIComponent(ticker)}`).then(r => r.json()),
+    enabled: ticker.length >= 1 && !tickerConfirmed,
     staleTime: 30000,
   });
 
-  // Live price for confirmed ticker
-  const { data: quoteData, isLoading: quoteLoading } = useQuery<{ price: number; name: string; exchange: string }>({
+  // Fetch live price once ticker is confirmed
+  const { data: quoteData, isLoading: quoteLoading } = useQuery<{ price: number; name: string }>({
     queryKey: ["/api/quote", ticker],
     queryFn: () => apiRequest("GET", `/api/quote/${ticker}`).then(r => r.json()),
-    enabled: tickerLocked && ticker.length > 0,
+    enabled: tickerConfirmed && ticker.length > 0,
     staleTime: 30000,
   });
 
-  const livePrice = quoteData?.price;
-
-  // When a ticker is selected from dropdown, auto-fill name and current price
-  const selectTicker = (t: string, n: string) => {
-    setTicker(t);
-    setName(n);
-    setSearchQuery(t);
-    setTickerLocked(true);
-    setShowDropdown(false);
-    // Pre-fill avg cost with live price once it loads
-  };
-
-  // When quote loads after selecting ticker, pre-fill avg cost if empty
-  const prevLivePrice = useRef<number | null>(null);
-  if (livePrice && livePrice !== prevLivePrice.current && avgCost === "") {
-    prevLivePrice.current = livePrice;
-    setAvgCost(parseFloat(livePrice.toFixed(2)));
+  // Auto-fill avg cost when price loads (only if field is still empty)
+  if (quoteData?.price && quoteData.price !== prevPrice.current && avgCost === "") {
+    prevPrice.current = quoteData.price;
+    setAvgCost(parseFloat(quoteData.price.toFixed(2)));
   }
 
-  const sharesNum = typeof shares === "number" ? shares : 0;
-  const costNum   = typeof avgCost === "number" ? avgCost : 0;
-  const costBasis = sharesNum * costNum;
-  const canSave   = ticker.trim().length > 0 && sharesNum > 0 && costNum > 0;
+  const sharesNum  = typeof shares  === "number" ? shares  : 0;
+  const costNum    = typeof avgCost === "number" ? avgCost : 0;
+  const costBasis  = sharesNum * costNum;
+  const canSave    = ticker.trim().length > 0 && sharesNum > 0 && costNum > 0;
 
-  const lbl   = "block text-xs text-muted-foreground uppercase tracking-widest mb-2 font-semibold";
-  const field = "w-full px-4 py-3.5 bg-secondary/50 border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all";
+  const field = "w-full px-3 py-2.5 bg-secondary/60 border border-border/60 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all";
+  const lbl   = "text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block font-semibold";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className="relative h-full w-full max-w-lg bg-card border-l border-border/40 shadow-2xl flex flex-col"
-        style={{ animation: "slideInRight 0.22s cubic-bezier(0.4,0,0.2,1)" }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl">
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border/30 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
           <div>
-            <h2 className="text-base font-bold" style={{ fontFamily: "var(--font-display)" }}>
+            <h3 className="font-semibold text-sm" style={{ fontFamily: "var(--font-display)" }}>
               {position ? `Edit ${position.ticker}` : "Add New Position"}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {position ? "Update your holding details" : "Search a ticker to get started"}
-            </p>
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Track a new stock in your portfolio</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        {/* Body */}
+        <div className="p-5 space-y-4">
 
-          {/* ── Ticker search ── */}
-          <div>
-            <label className={lbl}>Ticker Symbol <span className="text-red-400 normal-case">*</span></label>
-            <div className="relative" ref={dropdownRef}>
+          {/* Row 1: Ticker + Company Name */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Ticker with dropdown */}
+            <div>
+              <label className={lbl}>Ticker <span className="text-red-400">*</span></label>
               <div className="relative">
                 <input
                   type="text"
-                  value={searchQuery}
+                  value={ticker}
                   onChange={e => {
-                    const val = e.target.value.toUpperCase();
-                    setSearchQuery(val);
-                    setTicker(val);
-                    setTickerLocked(false);
+                    const v = e.target.value.toUpperCase();
+                    setTicker(v);
+                    setTickerConfirmed(false);
                     setShowDropdown(true);
-                    if (!val) setName("");
+                    if (!v) { setName(""); setAvgCost(""); prevPrice.current = null; }
                   }}
-                  onFocus={() => { if (!tickerLocked) setShowDropdown(true); }}
-                  placeholder="Search ticker or company name…"
-                  maxLength={10}
+                  onFocus={() => { if (!tickerConfirmed && ticker) setShowDropdown(true); }}
+                  placeholder="AAPL"
+                  maxLength={6}
                   autoFocus
-                  className={`${field} font-mono font-bold text-primary pr-10`}
+                  className={`${field} font-mono font-bold text-primary pr-7`}
                 />
-                {tickerLocked && (
+                {tickerConfirmed && (
                   <button
-                    onClick={() => { setTickerLocked(false); setSearchQuery(""); setTicker(""); setName(""); setAvgCost(""); setShowDropdown(true); prevLivePrice.current = null; }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    title="Change ticker"
+                    onClick={() => { setTickerConfirmed(false); setTicker(""); setName(""); setAvgCost(""); prevPrice.current = null; setShowDropdown(false); }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
-              </div>
 
-              {/* Dropdown */}
-              {showDropdown && !tickerLocked && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border/60 rounded-xl shadow-2xl z-50 overflow-hidden">
-                  {searchResults.slice(0, 6).map(r => (
-                    <button
-                      key={r.ticker}
-                      onClick={() => selectTicker(r.ticker, r.name)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors text-left border-b border-border/20 last:border-0"
-                    >
-                      <span className="font-mono font-bold text-primary text-sm w-16 shrink-0">{r.ticker}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground truncate">{r.name}</p>
-                        <p className="text-xs text-muted-foreground">{r.exchange}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Confirmed ticker info card */}
-            {tickerLocked && ticker && (
-              <div className="mt-2 rounded-xl bg-secondary/40 border border-border/30 px-4 py-3">
-                {quoteLoading ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
-                    <div className="w-16 h-3 bg-secondary rounded" />
-                    <div className="w-24 h-3 bg-secondary rounded" />
+                {/* Dropdown */}
+                {showDropdown && !tickerConfirmed && searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border/70 rounded-xl shadow-2xl z-50 overflow-hidden">
+                    {searchResults.slice(0, 6).map(r => (
+                      <button
+                        key={r.ticker}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setTicker(r.ticker);
+                          setName(r.name);
+                          setTickerConfirmed(true);
+                          setShowDropdown(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/60 transition-colors text-left border-b border-border/20 last:border-0"
+                      >
+                        <span className="font-mono font-bold text-primary text-xs w-14 shrink-0">{r.ticker}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-foreground truncate">{r.name}</p>
+                          <p className="text-xs text-muted-foreground/60">{r.exchange}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                ) : quoteData ? (
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{quoteData.name || name}</p>
-                      <p className="text-xs text-muted-foreground">{quoteData.exchange} · {ticker}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold font-mono text-green-400">${livePrice?.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">Current price</p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">Could not load price data for {ticker}</p>
                 )}
               </div>
-            )}
+            </div>
+
+            {/* Company Name — auto-filled, still editable */}
+            <div>
+              <label className={lbl}>Company Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Auto-filled"
+                className={field}
+              />
+            </div>
           </div>
 
-          {/* ── Shares + Avg Cost (only show after ticker locked) ── */}
-          {tickerLocked && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={lbl}>Shares <span className="text-red-400 normal-case">*</span></label>
-                  <input
-                    type="number" value={shares}
-                    onChange={e => setShares(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                    min={0} step={0.001}
-                    placeholder="100"
-                    className={`${field} font-mono`}
-                  />
-                </div>
-                <div>
-                  <label className={lbl}>
-                    Avg Cost / Share <span className="text-red-400 normal-case">*</span>
-                    {livePrice && (
-                      <span className="text-primary/70 font-normal normal-case tracking-normal ml-1">
-                        (current: ${livePrice.toFixed(2)})
-                      </span>
-                    )}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
-                    <input
-                      type="number" value={avgCost}
-                      onChange={e => setAvgCost(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                      min={0} step={0.01}
-                      placeholder="0.00"
-                      className={`${field} pl-7 font-mono`}
-                    />
-                  </div>
-                  {livePrice && costNum > 0 && (
-                    <p className={`text-xs mt-1 tabular-nums ${costNum > livePrice ? "text-red-400" : "text-green-400"}`}>
-                      {costNum > livePrice
-                        ? `↓ ${(((livePrice - costNum) / costNum) * 100).toFixed(1)}% below your cost`
-                        : `↑ ${(((livePrice - costNum) / costNum) * 100).toFixed(1)}% above your cost`}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Live cost basis preview */}
-              <div className={`rounded-xl border px-4 py-3 flex items-center justify-between transition-all ${costBasis > 0 ? "bg-primary/5 border-primary/20" : "bg-secondary/30 border-border/20"}`}>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total cost basis</p>
-                  <p className="text-xs text-muted-foreground/60 mt-0.5">shares × avg cost</p>
-                </div>
-                <p className={`text-xl font-bold font-mono tabular-nums ${costBasis > 0 ? "text-foreground" : "text-muted-foreground/30"}`}>
-                  {costBasis > 0 ? fmtCurrency(costBasis) : "$—"}
-                </p>
-              </div>
-
-              {/* Purchase Date */}
-              <div>
-                <label className={lbl}>Purchase Date</label>
-                <input
-                  type="date" value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className={field}
-                />
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className={lbl}>
-                  Notes
-                  <span className="text-muted-foreground/40 font-normal normal-case tracking-normal ml-1">(optional)</span>
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="e.g. Long-term hold, earnings play, sector hedge…"
-                  rows={3}
-                  className={`${field} resize-none`}
-                />
-              </div>
-            </>)}
-
-          {/* Validation hint */}
-          {!canSave && ticker && (
-            <p className="text-xs text-red-400/80 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
-              Ticker, shares, and avg cost are required to save.
-            </p>
+          {/* Live price confirmation strip */}
+          {tickerConfirmed && (
+            <div className="rounded-lg bg-secondary/40 border border-border/30 px-3 py-2 flex items-center justify-between text-xs">
+              {quoteLoading ? (
+                <span className="text-muted-foreground animate-pulse">Loading price…</span>
+              ) : quoteData ? (
+                <>
+                  <span className="text-muted-foreground">{ticker} · Current market price</span>
+                  <span className="font-mono font-bold text-green-400">${quoteData.price.toFixed(2)}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Could not load live price</span>
+              )}
+            </div>
           )}
+
+          {/* Row 2: Shares + Avg Cost */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Shares <span className="text-red-400">*</span></label>
+              <input
+                type="number"
+                value={shares}
+                onChange={e => setShares(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                min={0} step={0.001}
+                placeholder="100"
+                className={`${field} font-mono`}
+              />
+            </div>
+            <div>
+              <label className={lbl}>
+                Avg Cost / Share <span className="text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
+                <input
+                  type="number"
+                  value={avgCost}
+                  onChange={e => setAvgCost(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  min={0} step={0.01}
+                  placeholder="0.00"
+                  className={`${field} pl-6 font-mono`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Cost basis preview */}
+          <div className={`rounded-lg border px-3 py-2 flex items-center justify-between text-xs transition-all ${costBasis > 0 ? "bg-primary/5 border-primary/20" : "bg-secondary/30 border-border/20"}`}>
+            <span className="text-muted-foreground">Total cost basis (shares × avg cost)</span>
+            <span className={`font-mono font-bold tabular-nums ${costBasis > 0 ? "text-foreground" : "text-muted-foreground/30"}`}>
+              {costBasis > 0 ? fmtCurrency(costBasis) : "$—"}
+            </span>
+          </div>
+
+          {/* Purchase Date */}
+          <div>
+            <label className={lbl}>Purchase Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className={field}
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className={lbl}>Notes <span className="text-muted-foreground/40 font-normal normal-case tracking-normal">(optional)</span></label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Long-term hold, earnings play, sector hedge…"
+              rows={2}
+              className={`${field} resize-none`}
+            />
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-5 border-t border-border/30 flex gap-3 shrink-0">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3.5 text-sm border border-border rounded-xl text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors font-medium"
-          >
+        <div className="flex gap-2 px-5 pb-5">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
             Cancel
           </button>
           <button
             onClick={() => { if (canSave) onSave({ ticker, name: name || ticker, shares: sharesNum, avgCost: costNum, purchaseDate: date, notes }); }}
             disabled={!canSave}
-            className="flex-[2] py-3.5 text-sm bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-[2] py-2.5 text-sm bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {position ? "Save Changes" : "Add to Portfolio"}
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to   { transform: translateX(0);    opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }
+
 
 // ─── Controls Guide ─────────────────────────────────────────────────────────
 const TABS_GUIDE = [
