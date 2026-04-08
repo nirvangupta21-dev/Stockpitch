@@ -53,9 +53,14 @@ function AppInner() {
 
   useEffect(() => {
     const root = document.documentElement;
-    // Theme
-    root.classList.toggle("dark", settings.theme === "dark");
-    root.classList.toggle("light", settings.theme === "light");
+    // Theme — mutually exclusive, always set one and remove the other
+    if (settings.theme === "light") {
+      root.classList.add("light");
+      root.classList.remove("dark");
+    } else {
+      root.classList.add("dark");
+      root.classList.remove("light");
+    }
     // Accent
     root.setAttribute("data-accent", settings.accentColor);
     // Font size

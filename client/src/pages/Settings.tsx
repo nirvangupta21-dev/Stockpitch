@@ -870,8 +870,9 @@ export default function Settings() {
       await Promise.allSettled(
         tickers.map(async t => {
           try {
-            const r = await apiRequest("GET", `/api/quote/${t}`).then(res => res.json());
-            if (r.price) results[t] = r.price;
+            const res = await apiRequest("GET", `/api/quote/${t}`);
+            const data = await res.json();
+            if (data?.price) results[t] = data.price;
           } catch {}
         })
       );
