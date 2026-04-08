@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import * as XLSX from "xlsx";
@@ -407,17 +407,56 @@ function PositionRow({
 
 // ─── Add/Edit Position Drawer ─────────────────────────────────────────────────
 function PositionModal({ position, onSave, onClose }: { position?: Position; onSave: (p: Omit<Position, "id">) => void; onClose: () => void }) {
-  const [ticker, setTicker]   = useState(position?.ticker || "");
-  const [name, setName]       = useState(position?.name || "");
-  const [shares, setShares]   = useState<number | "">(position?.shares ?? "");
-  const [avgCost, setAvgCost] = useState<number | "">(position?.avgCost ?? "");
-  const [date, setDate]       = useState(position?.purchaseDate || new Date().toISOString().split("T")[0]);
-  const [notes, setNotes]     = useState(position?.notes || "");
+  const [ticker, setTicker]         = useState(position?.ticker || "");
+  const [name, setName]             = useState(position?.name || "");
+  const [shares, setShares]         = useState<number | "">(position?.shares ?? "");
+  const [avgCost, setAvgCost]       = useState<number | "">(position?.avgCost ?? "");
+  const [date, setDate]             = useState(position?.purchaseDate || new Date().toISOString().split("T")[0]);
+  const [notes, setNotes]           = useState(position?.notes || "");
+  const [searchQuery, setSearchQuery] = useState(position?.ticker || "");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [tickerLocked, setTickerLocked] = useState(!!position); // true when a ticker is confirmed
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const sharesNum  = typeof shares === "number" ? shares : 0;
-  const costNum    = typeof avgCost === "number" ? avgCost : 0;
-  const costBasis  = sharesNum * costNum;
-  const canSave    = ticker.trim().length > 0 && sharesNum > 0 && costNum > 0;
+  // Search results
+  const { data: searchResults = [] } = useQuery<{ ticker: string; name: string; exchange: string }[]>({
+    queryKey: ["/api/search", searchQuery],
+    queryFn: () => apiRequest("GET", `/api/search?q=${encodeURIComponent(searchQuery)}`).then(r => r.json()),
+    enabled: searchQuery.length >= 1 && !tickerLocked,
+    staleTime: 30000,
+  });
+
+  // Live price for confirmed ticker
+  const { data: quoteData, isLoading: quoteLoading } = useQuery<{ price: number; name: string; exchange: string }>({
+    queryKey: ["/api/quote", ticker],
+    queryFn: () => apiRequest("GET", `/api/quote/${ticker}`).then(r => r.json()),
+    enabled: tickerLocked && ticker.length > 0,
+    staleTime: 30000,
+  });
+
+  const livePrice = quoteData?.price;
+
+  // When a ticker is selected from dropdown, auto-fill name and current price
+  const selectTicker = (t: string, n: string) => {
+    setTicker(t);
+    setName(n);
+    setSearchQuery(t);
+    setTickerLocked(true);
+    setShowDropdown(false);
+    // Pre-fill avg cost with live price once it loads
+  };
+
+  // When quote loads after selecting ticker, pre-fill avg cost if empty
+  const prevLivePrice = useRef<number | null>(null);
+  if (livePrice && livePrice !== prevLivePrice.current && avgCost === "") {
+    prevLivePrice.current = livePrice;
+    setAvgCost(parseFloat(livePrice.toFixed(2)));
+  }
+
+  const sharesNum = typeof shares === "number" ? shares : 0;
+  const costNum   = typeof avgCost === "number" ? avgCost : 0;
+  const costBasis = sharesNum * costNum;
+  const canSave   = ticker.trim().length > 0 && sharesNum > 0 && costNum > 0;
 
   const lbl   = "block text-xs text-muted-foreground uppercase tracking-widest mb-2 font-semibold";
   const field = "w-full px-4 py-3.5 bg-secondary/50 border border-border/50 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all";
@@ -439,13 +478,10 @@ function PositionModal({ position, onSave, onClose }: { position?: Position; onS
               {position ? `Edit ${position.ticker}` : "Add New Position"}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {position ? "Update your holding details" : "Track a new stock in your portfolio"}
+              {position ? "Update your holding details" : "Search a ticker to get started"}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
+          <button onClick={onClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -453,92 +489,164 @@ function PositionModal({ position, onSave, onClose }: { position?: Position; onS
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
-          {/* Ticker + Company */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Ticker <span className="text-red-400 normal-case">*</span></label>
-              <input
-                type="text" value={ticker}
-                onChange={e => setTicker(e.target.value.toUpperCase())}
-                placeholder="AAPL"
-                maxLength={6}
-                autoFocus
-                className={`${field} font-mono font-bold text-primary text-lg tracking-widest`}
-              />
+          {/* ── Ticker search ── */}
+          <div>
+            <label className={lbl}>Ticker Symbol <span className="text-red-400 normal-case">*</span></label>
+            <div className="relative" ref={dropdownRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => {
+                    const val = e.target.value.toUpperCase();
+                    setSearchQuery(val);
+                    setTicker(val);
+                    setTickerLocked(false);
+                    setShowDropdown(true);
+                    if (!val) setName("");
+                  }}
+                  onFocus={() => { if (!tickerLocked) setShowDropdown(true); }}
+                  placeholder="Search ticker or company name…"
+                  maxLength={10}
+                  autoFocus
+                  className={`${field} font-mono font-bold text-primary pr-10`}
+                />
+                {tickerLocked && (
+                  <button
+                    onClick={() => { setTickerLocked(false); setSearchQuery(""); setTicker(""); setName(""); setAvgCost(""); setShowDropdown(true); prevLivePrice.current = null; }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    title="Change ticker"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown */}
+              {showDropdown && !tickerLocked && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border/60 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  {searchResults.slice(0, 6).map(r => (
+                    <button
+                      key={r.ticker}
+                      onClick={() => selectTicker(r.ticker, r.name)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors text-left border-b border-border/20 last:border-0"
+                    >
+                      <span className="font-mono font-bold text-primary text-sm w-16 shrink-0">{r.ticker}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">{r.exchange}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <label className={lbl}>Company Name</label>
-              <input
-                type="text" value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Apple Inc."
-                className={field}
-              />
-            </div>
+
+            {/* Confirmed ticker info card */}
+            {tickerLocked && ticker && (
+              <div className="mt-2 rounded-xl bg-secondary/40 border border-border/30 px-4 py-3">
+                {quoteLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+                    <div className="w-16 h-3 bg-secondary rounded" />
+                    <div className="w-24 h-3 bg-secondary rounded" />
+                  </div>
+                ) : quoteData ? (
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{quoteData.name || name}</p>
+                      <p className="text-xs text-muted-foreground">{quoteData.exchange} · {ticker}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold font-mono text-green-400">${livePrice?.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Current price</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Could not load price data for {ticker}</p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Shares + Avg Cost */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Shares <span className="text-red-400 normal-case">*</span></label>
-              <input
-                type="number" value={shares}
-                onChange={e => setShares(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                min={0} step={0.001}
-                placeholder="100"
-                className={`${field} font-mono`}
-              />
-            </div>
-            <div>
-              <label className={lbl}>Avg Cost / Share <span className="text-red-400 normal-case">*</span></label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
+          {/* ── Shares + Avg Cost (only show after ticker locked) ── */}
+          {tickerLocked && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lbl}>Shares <span className="text-red-400 normal-case">*</span></label>
+                  <input
+                    type="number" value={shares}
+                    onChange={e => setShares(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                    min={0} step={0.001}
+                    placeholder="100"
+                    className={`${field} font-mono`}
+                  />
+                </div>
+                <div>
+                  <label className={lbl}>
+                    Avg Cost / Share <span className="text-red-400 normal-case">*</span>
+                    {livePrice && (
+                      <span className="text-primary/70 font-normal normal-case tracking-normal ml-1">
+                        (current: ${livePrice.toFixed(2)})
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
+                    <input
+                      type="number" value={avgCost}
+                      onChange={e => setAvgCost(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      min={0} step={0.01}
+                      placeholder="0.00"
+                      className={`${field} pl-7 font-mono`}
+                    />
+                  </div>
+                  {livePrice && costNum > 0 && (
+                    <p className={`text-xs mt-1 tabular-nums ${costNum > livePrice ? "text-red-400" : "text-green-400"}`}>
+                      {costNum > livePrice
+                        ? `↓ ${(((livePrice - costNum) / costNum) * 100).toFixed(1)}% below your cost`
+                        : `↑ ${(((livePrice - costNum) / costNum) * 100).toFixed(1)}% above your cost`}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Live cost basis preview */}
+              <div className={`rounded-xl border px-4 py-3 flex items-center justify-between transition-all ${costBasis > 0 ? "bg-primary/5 border-primary/20" : "bg-secondary/30 border-border/20"}`}>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total cost basis</p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">shares × avg cost</p>
+                </div>
+                <p className={`text-xl font-bold font-mono tabular-nums ${costBasis > 0 ? "text-foreground" : "text-muted-foreground/30"}`}>
+                  {costBasis > 0 ? fmtCurrency(costBasis) : "$—"}
+                </p>
+              </div>
+
+              {/* Purchase Date */}
+              <div>
+                <label className={lbl}>Purchase Date</label>
                 <input
-                  type="number" value={avgCost}
-                  onChange={e => setAvgCost(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                  min={0} step={0.01}
-                  placeholder="0.00"
-                  className={`${field} pl-7 font-mono`}
+                  type="date" value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className={field}
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Live cost basis preview */}
-          <div className={`rounded-xl border px-4 py-3 flex items-center justify-between transition-all ${costBasis > 0 ? "bg-primary/5 border-primary/20" : "bg-secondary/30 border-border/20"}`}>
-            <div>
-              <p className="text-xs text-muted-foreground">Total cost basis</p>
-              <p className="text-xs text-muted-foreground/60 mt-0.5">shares × avg cost</p>
-            </div>
-            <p className={`text-xl font-bold font-mono tabular-nums ${costBasis > 0 ? "text-foreground" : "text-muted-foreground/30"}`}>
-              {costBasis > 0 ? fmtCurrency(costBasis) : "$—"}
-            </p>
-          </div>
-
-          {/* Purchase Date */}
-          <div>
-            <label className={lbl}>Purchase Date</label>
-            <input
-              type="date" value={date}
-              onChange={e => setDate(e.target.value)}
-              className={field}
-            />
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className={lbl}>
-              Notes
-              <span className="text-muted-foreground/40 font-normal normal-case tracking-normal ml-1">(optional)</span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="e.g. Long-term hold, earnings play, sector hedge…"
-              rows={3}
-              className={`${field} resize-none`}
-            />
-          </div>
+              {/* Notes */}
+              <div>
+                <label className={lbl}>
+                  Notes
+                  <span className="text-muted-foreground/40 font-normal normal-case tracking-normal ml-1">(optional)</span>
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="e.g. Long-term hold, earnings play, sector hedge…"
+                  rows={3}
+                  className={`${field} resize-none`}
+                />
+              </div>
+            </>)}
 
           {/* Validation hint */}
           {!canSave && ticker && (
