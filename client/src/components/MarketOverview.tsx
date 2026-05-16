@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { BarChart2, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { BarChart2, TrendingUp, TrendingDown, RefreshCw, Globe } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area,
   BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -68,25 +68,82 @@ function Spark({ data, up }: { data: number[]; up: boolean }) {
   );
 }
 
+// Pretty names for index symbols
+const INDEX_LABELS: Record<string, { label: string; region: string }> = {
+  "^GSPC":  { label: "S&P 500",    region: "US" },
+  "^IXIC":  { label: "NASDAQ",     region: "US" },
+  "^DJI":   { label: "Dow Jones",  region: "US" },
+  "^NYC":   { label: "NYSE Comp.", region: "US" },
+  "^N225":  { label: "Nikkei 225", region: "JP" },
+  "^NSEI":  { label: "NIFTY 50",   region: "IN" },
+  "^GDAXI": { label: "DAX",        region: "DE" },
+  "^FTSE":  { label: "FTSE 100",   region: "GB" },
+};
+
+const FLAG: Record<string, string> = {
+  US: "🇺🇸", JP: "🇯🇵", IN: "🇮🇳", DE: "🇩🇪", GB: "🇬🇧",
+};
+
 // Index card
 function IndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
+  const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, region: "US" };
   return (
-    <div className={`rounded-xl border p-4 flex flex-col gap-2 transition-all ${up ? "bg-green-500/5 border-green-500/15" : "bg-red-500/5 border-red-500/15"}`}>
+    <div className={`rounded-xl border p-4 flex flex-col gap-2 transition-all hover:scale-[1.02] duration-200 ${
+      up ? "bg-green-500/5 border-green-500/20 hover:border-green-500/35" : "bg-red-500/5 border-red-500/20 hover:border-red-500/35"
+    }`}>
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{item.symbol}</p>
-          <p className="text-xl font-bold tabular-nums mt-0.5" style={{ fontFamily: "var(--font-display)" }}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-sm">{FLAG[meta.region] ?? ""}</span>
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider truncate">{meta.label}</p>
+          </div>
+          <p className="text-xl font-bold tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
             {fmtPrice(item.price)}
           </p>
         </div>
         <Spark data={item.spark} up={up} />
       </div>
-      <div className={`flex items-center gap-1.5 text-sm font-semibold tabular-nums ${up ? "text-green-400" : "text-red-400"}`}>
-        {up ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-        <span>{fmtPct(item.changePct)}</span>
-        <span className="text-xs font-normal text-muted-foreground">today</span>
+      <div className="flex items-center justify-between">
+        <div className={`flex items-center gap-1 text-sm font-bold tabular-nums ${up ? "text-green-400" : "text-red-400"}`}>
+          {up ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+          <span>{fmtPct(item.changePct)}</span>
+        </div>
+        <span className="text-xs text-muted-foreground/50">today</span>
       </div>
+    </div>
+  );
+}
+
+// Scrolling ticker tape
+function TickerTape({ indices }: { indices: MarketItem[] }) {
+  if (!indices.length) return null;
+  const items = [...indices, ...indices]; // double for seamless loop
+  return (
+    <div className="overflow-hidden rounded-xl bg-card border border-border/40 py-2.5 px-0 relative" style={{ maskImage: "linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)" }}>
+      <div className="flex items-center gap-8 animate-ticker whitespace-nowrap" style={{ animation: "tickerScroll 35s linear infinite" }}>
+        {items.map((item, i) => {
+          const up = item.changePct >= 0;
+          const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, region: "US" };
+          return (
+            <span key={i} className="flex items-center gap-2 text-xs shrink-0">
+              <span>{FLAG[meta.region] ?? ""}</span>
+              <span className="font-mono font-bold text-foreground">{meta.label}</span>
+              <span className="font-mono tabular-nums text-foreground/70">{fmtPrice(item.price)}</span>
+              <span className={`font-mono font-bold tabular-nums ${up ? "text-green-400" : "text-red-400"}`}>
+                {fmtPct(item.changePct)}
+              </span>
+              <span className="text-border/60 mx-2">·</span>
+            </span>
+          );
+        })}
+      </div>
+      <style>{`
+        @keyframes tickerScroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -145,19 +202,48 @@ export default function MarketOverview() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="skeleton h-28 rounded-xl" />)}
+        <div className="space-y-3">
+          <div className="skeleton h-10 rounded-xl" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="skeleton h-28 rounded-xl" />)}
+          </div>
         </div>
       ) : (
         <>
-          {/* Index cards */}
+          {/* Scrolling ticker tape */}
           {overview?.indices && overview.indices.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {overview.indices.map((item) => (
-                <IndexCard key={item.symbol} item={item} />
-              ))}
-            </div>
+            <TickerTape indices={overview.indices} />
           )}
+
+          {/* Index cards — US + Global */}
+          {overview?.indices && overview.indices.length > 0 && (() => {
+            const us     = overview.indices.filter(i => ["^GSPC","^IXIC","^DJI","^NYC"].includes(i.symbol));
+            const global = overview.indices.filter(i => !["^GSPC","^IXIC","^DJI","^NYC"].includes(i.symbol));
+            return (
+              <div className="space-y-3">
+                {us.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <span>🇺🇸</span> US Markets
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {us.map(item => <IndexCard key={item.symbol} item={item} />)}
+                    </div>
+                  </div>
+                )}
+                {global.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <Globe className="w-3 h-3" /> Global Markets
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {global.map(item => <IndexCard key={item.symbol} item={item} />)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Sector performance bar chart */}
           {overview?.sectors && overview.sectors.length > 0 && (

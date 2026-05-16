@@ -414,7 +414,16 @@ export async function registerRoutes(httpServer: Server, app: Express) {
   app.get("/api/market/overview", async (req, res) => {
     try {
       // Major indices + sector ETFs in one shot via v8 chart API
-      const INDICES = ["%5EGSPC", "%5EIXIC", "%5EDJI", "%5ENYC"]; // S&P, NASDAQ, DOW, NYSE Composite
+      const INDICES = [
+        "%5EGSPC",  // S&P 500
+        "%5EIXIC",  // NASDAQ
+        "%5EDJI",   // Dow Jones
+        "%5ENYC",   // NYSE Composite
+        "%5EN225",  // Nikkei 225 (Japan)
+        "%5ENSEI",  // NIFTY 50 (India)
+        "%5EGDAXI", // DAX (Germany)
+        "%5EFTSE",  // FTSE 100 (UK)
+      ];
       const SECTOR_ETFS = ["XLK","XLF","XLV","XLE","XLI","XLC","XLY","XLP","XLB","XLRE","XLU"];
       const SECTOR_NAMES: Record<string, string> = {
         XLK: "Technology", XLF: "Financials", XLV: "Health Care",

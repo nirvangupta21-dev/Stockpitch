@@ -42,7 +42,7 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
     queryKey: ["/api/quote", ticker],
     queryFn: () => apiRequest("GET", `/api/quote/${ticker}`).then(r => r.json()),
     enabled: !!ticker,
-    refetchInterval: 30000,
+    refetchInterval: 500,
     retry: 2,
   });
 

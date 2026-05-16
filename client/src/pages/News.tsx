@@ -386,7 +386,7 @@ export default function News() {
   const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery<NewsData>({
     queryKey: ["/api/news"],
     queryFn: () => apiRequest("GET", "/api/news").then(r => r.json()),
-    refetchInterval: 2 * 60 * 60 * 1000, // 2 hours
+    refetchInterval: 25 * 60 * 1000, // 25 minutes
     staleTime: 2 * 60 * 60 * 1000,
   });
 
@@ -421,7 +421,7 @@ export default function News() {
           {fetchedAt && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Updated {timeAgo(new Date(fetchedAt).toISOString())} · auto-refreshes every 2h
+              Updated {timeAgo(new Date(fetchedAt).toISOString())} · auto-refreshes every 25 min
             </span>
           )}
           <button
