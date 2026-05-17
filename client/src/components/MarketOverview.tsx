@@ -69,15 +69,15 @@ function Spark({ data, up }: { data: number[]; up: boolean }) {
 }
 
 // Pretty names for index symbols
-const INDEX_LABELS: Record<string, { label: string; region: string }> = {
-  "^GSPC":  { label: "S&P 500",    region: "US" },
-  "^IXIC":  { label: "NASDAQ",     region: "US" },
-  "^DJI":   { label: "Dow Jones",  region: "US" },
-  "^NYC":   { label: "NYSE Comp.", region: "US" },
-  "^N225":  { label: "Nikkei 225", region: "JP" },
-  "^NSEI":  { label: "NIFTY 50",   region: "IN" },
-  "^GDAXI": { label: "DAX",        region: "DE" },
-  "^FTSE":  { label: "FTSE 100",   region: "GB" },
+const INDEX_LABELS: Record<string, { label: string; ticker: string; region: string }> = {
+  "^GSPC":  { label: "S&P 500",    ticker: "^GSPC",  region: "US" },
+  "^IXIC":  { label: "NASDAQ",     ticker: "^IXIC",  region: "US" },
+  "^DJI":   { label: "Dow Jones",  ticker: "^DJI",   region: "US" },
+  "^NYC":   { label: "NYSE Comp.", ticker: "^NYC",   region: "US" },
+  "^N225":  { label: "Nikkei 225", ticker: "^N225",  region: "JP" },
+  "^NSEI":  { label: "NIFTY 50",   ticker: "^NSEI",  region: "IN" },
+  "^GDAXI": { label: "DAX",        ticker: "^GDAXI", region: "DE" },
+  "^FTSE":  { label: "FTSE 100",   ticker: "^FTSE",  region: "GB" },
 };
 
 const FLAG: Record<string, string> = {
@@ -101,6 +101,7 @@ function IndexCard({ item }: { item: MarketItem }) {
           <p className="text-xl font-bold tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
             {fmtPrice(item.price)}
           </p>
+          <p className="text-xs font-mono text-muted-foreground/50 mt-0.5">{meta.ticker}</p>
         </div>
         <Spark data={item.spark} up={up} />
       </div>
@@ -129,6 +130,7 @@ function TickerTape({ indices }: { indices: MarketItem[] }) {
             <span key={i} className="flex items-center gap-2 text-xs shrink-0">
               <span>{FLAG[meta.region] ?? ""}</span>
               <span className="font-mono font-bold text-foreground">{meta.label}</span>
+              <span className="font-mono text-muted-foreground/50 text-xs">{meta.ticker}</span>
               <span className="font-mono tabular-nums text-foreground/70">{fmtPrice(item.price)}</span>
               <span className={`font-mono font-bold tabular-nums ${up ? "text-green-400" : "text-red-400"}`}>
                 {fmtPct(item.changePct)}
