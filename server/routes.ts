@@ -690,58 +690,123 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // ─── Daily IPO Listings
+  // ─── Daily IPO Listings (global, exchange-aware)
   app.get("/api/ipos", async (req, res) => {
     try {
-      // Strategy: fetch holdings from IPO ETFs (Renaissance IPO ETF = "IPO", FPX)
-      // These ETFs track recent listings and give us real tickers with live prices
-      const ETF_TICKERS = ["RDDT", "ARM", "ASTERA", "ASTS", "RKLB", "IONQ", "JOBY", "ACHR",
-                           "BFLY", "PAYO", "TPVG", "SOUN", "NAUT", "HIMS", "CLOV", "OPEN",
-                           "RIVN", "CART", "KVYO", "BIRK", "KSPI", "LNTH", "LMND", "SOFI"];
+      const exchange = (req.query.exchange as string) || "all";
 
-      // Also fetch small cap gainers as a proxy for recently listed high-momentum stocks
-      const [gainersRes, ...etfRes] = await Promise.all([
-        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=small_cap_gainers&count=30", {
-          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
-        }),
-        ...ETF_TICKERS.slice(0, 12).map(t =>
+      // Exchange → Yahoo Finance screener ID + exchange filter tags
+      const EXCHANGE_CONFIG: Record<string, {
+        label: string;
+        flag: string;
+        screeners: string[];
+        recentTickers: string[];
+        exchangeTags?: string[];
+      }> = {
+        all: {
+          label: "All Markets", flag: "🌐",
+          screeners: ["day_gainers", "small_cap_gainers"],
+          recentTickers: ["RDDT","ARM","ASTS","RKLB","IONQ","JOBY","HIMS","RIVN","CART","KVYO","SOFI","SOUN"],
+        },
+        nasdaq: {
+          label: "NASDAQ", flag: "🇺🇸",
+          screeners: ["day_gainers"],
+          recentTickers: ["RDDT","ARM","ASTS","RKLB","IONQ","JOBY","HIMS","CART","KVYO","SOFI"],
+          exchangeTags: ["NMS","NGM","NCM"],
+        },
+        nyse: {
+          label: "NYSE", flag: "🇺🇸",
+          screeners: ["day_gainers"],
+          recentTickers: ["RIVN","BIRK","PAYO","CLOV","OPEN","LMND","ACHR","BFLY"],
+          exchangeTags: ["NYQ","NYSE"],
+        },
+        lse: {
+          label: "LSE (London)", flag: "🇬🇧",
+          screeners: [],
+          recentTickers: ["AZN","SHEL","RIO","HSBA.L","BP","VOD","BA.L","LLOY.L"],
+        },
+        tsx: {
+          label: "TSX (Canada)", flag: "🇨🇦",
+          screeners: [],
+          recentTickers: ["SHOP","CNR","TD","RY","ENB","BCE","BMO","SU"],
+        },
+        asx: {
+          label: "ASX (Australia)", flag: "🇦🇺",
+          screeners: [],
+          recentTickers: ["BHP","CSL","CBA","NAB","WBC","ANZ","RIO","WDS"],
+        },
+        nse: {
+          label: "NSE (India)", flag: "🇮🇳",
+          screeners: [],
+          recentTickers: ["RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS","ICICIBANK.NS","SBIN.NS","WIPRO.NS","LT.NS"],
+        },
+        tse: {
+          label: "TSE (Japan)", flag: "🇯🇵",
+          screeners: [],
+          recentTickers: ["7203.T","6758.T","9432.T","8306.T","6501.T","4661.T","9984.T","6902.T"],
+        },
+        sse: {
+          label: "SSE (China)", flag: "🇨🇳",
+          screeners: [],
+          recentTickers: ["BABA","JD","PDD","BIDU","NIO","XPEV","LI","NTES"],
+        },
+        euronext: {
+          label: "Euronext", flag: "🇪🇺",
+          screeners: [],
+          recentTickers: ["MC.PA","OR.PA","SAN.PA","AI.PA","BNP.PA","TTE.PA","SU.PA","DG.PA"],
+        },
+      };
+
+      const config = EXCHANGE_CONFIG[exchange] || EXCHANGE_CONFIG["all"];
+
+      // Fetch recent tickers
+      const recentResults = await Promise.all(
+        config.recentTickers.map(t =>
           fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${t}?interval=1d&range=1d`, {
             headers: { "User-Agent": "Mozilla/5.0" },
-          }).catch(() => null)
-        ),
-      ]);
-
-      // Parse ETF ticker data as "recent IPOs"
-      const recentIPOs: any[] = [];
-      const etfJsons = await Promise.all(
-        etfRes.map(r => r && (r as Response).ok ? (r as Response).json().catch(() => null) : Promise.resolve(null))
+          }).then(r => r.ok ? r.json().catch(() => null) : null).catch(() => null)
+        )
       );
 
-      etfJsons.forEach((data: any, i: number) => {
+      const recentIPOs: any[] = [];
+      recentResults.forEach((data: any) => {
         if (!data) return;
         const meta = data?.chart?.result?.[0]?.meta;
-        if (!meta || !meta.regularMarketPrice) return;
+        if (!meta?.regularMarketPrice) return;
+        // Exchange filter for US markets
+        if (config.exchangeTags?.length) {
+          const exch = meta.exchangeName || meta.fullExchangeName || "";
+          if (!config.exchangeTags.some(tag => exch.includes(tag))) return;
+        }
         const prev = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice;
         recentIPOs.push({
           ticker: meta.symbol,
           name: meta.longName || meta.shortName || meta.symbol,
-          exchange: meta.fullExchangeName || meta.exchangeName,
+          exchange: meta.fullExchangeName || meta.exchangeName || config.label,
           price: parseFloat(meta.regularMarketPrice.toFixed(2)),
           marketCap: meta.marketCap || null,
           change: parseFloat((((meta.regularMarketPrice - prev) / prev) * 100).toFixed(2)),
           ipoDate: null,
-          sector: "Technology",
-          industry: "N/A",
-          type: "recent",
+          sector: meta.sector || "N/A",
+          industry: meta.industry || "N/A",
+          type: "recent" as const,
         });
       });
 
-      // Parse small cap gainers as upcoming/watchlist
-      const gainersData = gainersRes.ok ? await gainersRes.json() : null;
-      const upcoming: any[] = (gainersData?.finance?.result?.[0]?.quotes || [])
-        .filter((q: any) => q.exchange === "NMS" || q.exchange === "NYQ" || q.exchange === "NGM")
-        .slice(0, 10)
-        .map((q: any) => ({
+      // Fetch upcoming via screener (US exchanges only)
+      let upcoming: any[] = [];
+      if (config.screeners.length) {
+        const screenerRes = await fetch(
+          `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=${config.screeners[0]}&count=30`,
+          { headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" } }
+        ).then(r => r.ok ? r.json().catch(() => null) : null).catch(() => null);
+
+        const quotes: any[] = screenerRes?.finance?.result?.[0]?.quotes || [];
+        let filtered = quotes;
+        if (config.exchangeTags?.length) {
+          filtered = quotes.filter((q: any) => config.exchangeTags!.includes(q.exchange));
+        }
+        upcoming = filtered.slice(0, 10).map((q: any) => ({
           ticker: q.symbol,
           name: q.shortName || q.longName || q.symbol,
           exchange: q.fullExchangeName || q.exchange,
@@ -751,10 +816,14 @@ export async function registerRoutes(httpServer: Server, app: Express) {
           ipoDate: null,
           sector: q.sector || "N/A",
           industry: q.industry || "N/A",
-          type: "upcoming",
+          type: "upcoming" as const,
         }));
+      }
 
       res.json({
+        exchange,
+        label: config.label,
+        flag: config.flag,
         upcoming,
         recent: recentIPOs.filter(r => r.price > 0),
         lastUpdated: new Date().toISOString(),
