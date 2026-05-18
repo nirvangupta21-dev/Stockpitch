@@ -415,14 +415,35 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     try {
       // Major indices + sector ETFs in one shot via v8 chart API
       const INDICES = [
-        "%5EGSPC",  // S&P 500
-        "%5EIXIC",  // NASDAQ
-        "%5EDJI",   // Dow Jones
-        "%5ENYC",   // NYSE Composite
-        "%5EN225",  // Nikkei 225 (Japan)
-        "%5ENSEI",  // NIFTY 50 (India)
-        "%5EGDAXI", // DAX (Germany)
-        "%5EFTSE",  // FTSE 100 (UK)
+        // US
+        "%5EGSPC",   // S&P 500
+        "%5EIXIC",   // NASDAQ Composite
+        "%5EDJI",    // Dow Jones Industrial Average
+        "%5ENYC",    // NYSE Composite
+        "%5ERUT",    // Russell 2000
+        // Americas
+        "%5EGSPTSE", // S&P/TSX Composite (Canada)
+        "%5EBVSP",   // Bovespa (Brazil)
+        "%5EMXX",    // IPC Mexico
+        // Europe
+        "%5EGDAXI",  // DAX (Germany)
+        "%5EFTSE",   // FTSE 100 (UK)
+        "%5EFCHI",   // CAC 40 (France)
+        "%5ESTI",    // STOXX Europe 600
+        "%5EIBEX",   // IBEX 35 (Spain)
+        "%5EFTMIB",  // FTSE MIB (Italy)
+        "%5EAEX",    // AEX (Netherlands)
+        "%5ESSMI",   // SMI (Switzerland)
+        // Asia Pacific
+        "%5EN225",   // Nikkei 225 (Japan)
+        "%5ENSEI",   // NIFTY 50 (India)
+        "%5EBSESN",  // BSE SENSEX (India)
+        "000001.SS", // Shanghai Composite (China)
+        "%5EHSI",    // Hang Seng (Hong Kong)
+        "%5EKOSPI",  // KOSPI (South Korea)
+        "%5ETWII",   // TAIEX (Taiwan)
+        "%5EAXJO",   // ASX 200 (Australia)
+        "%5ESTI",    // Straits Times (Singapore)
       ];
       const SECTOR_ETFS = ["XLK","XLF","XLV","XLE","XLI","XLC","XLY","XLP","XLB","XLRE","XLU"];
       const SECTOR_NAMES: Record<string, string> = {

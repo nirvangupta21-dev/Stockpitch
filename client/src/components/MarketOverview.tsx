@@ -69,25 +69,54 @@ function Spark({ data, up }: { data: number[]; up: boolean }) {
 }
 
 // Pretty names for index symbols
-const INDEX_LABELS: Record<string, { label: string; ticker: string; region: string }> = {
-  "^GSPC":  { label: "S&P 500",    ticker: "^GSPC",  region: "US" },
-  "^IXIC":  { label: "NASDAQ",     ticker: "^IXIC",  region: "US" },
-  "^DJI":   { label: "Dow Jones",  ticker: "^DJI",   region: "US" },
-  "^NYC":   { label: "NYSE Comp.", ticker: "^NYC",   region: "US" },
-  "^N225":  { label: "Nikkei 225", ticker: "^N225",  region: "JP" },
-  "^NSEI":  { label: "NIFTY 50",   ticker: "^NSEI",  region: "IN" },
-  "^GDAXI": { label: "DAX",        ticker: "^GDAXI", region: "DE" },
-  "^FTSE":  { label: "FTSE 100",   ticker: "^FTSE",  region: "GB" },
+type RegionGroup = "US" | "Americas" | "Europe" | "AsiaPacific";
+
+const INDEX_LABELS: Record<string, { label: string; ticker: string; flag: string; group: RegionGroup }> = {
+  // US
+  "^GSPC":    { label: "S&P 500",          ticker: "^GSPC",    flag: "🇺🇸", group: "US" },
+  "^IXIC":    { label: "NASDAQ",           ticker: "^IXIC",    flag: "🇺🇸", group: "US" },
+  "^DJI":     { label: "Dow Jones",        ticker: "^DJI",     flag: "🇺🇸", group: "US" },
+  "^NYC":     { label: "NYSE Comp.",       ticker: "^NYC",     flag: "🇺🇸", group: "US" },
+  "^RUT":     { label: "Russell 2000",     ticker: "^RUT",     flag: "🇺🇸", group: "US" },
+  // Americas
+  "^GSPTSE":  { label: "TSX Composite",    ticker: "^GSPTSE",  flag: "🇨🇦", group: "Americas" },
+  "^BVSP":    { label: "Bovespa",          ticker: "^BVSP",    flag: "🇧🇷", group: "Americas" },
+  "^MXX":     { label: "IPC Mexico",       ticker: "^MXX",     flag: "🇲🇽", group: "Americas" },
+  // Europe
+  "^GDAXI":   { label: "DAX",              ticker: "^GDAXI",   flag: "🇩🇪", group: "Europe" },
+  "^FTSE":    { label: "FTSE 100",         ticker: "^FTSE",    flag: "🇬🇧", group: "Europe" },
+  "^FCHI":    { label: "CAC 40",           ticker: "^FCHI",    flag: "🇫🇷", group: "Europe" },
+  "^STOXX":   { label: "STOXX Europe 600", ticker: "^STOXX",   flag: "🇪🇺", group: "Europe" },
+  "^STOXX50E":{ label: "Euro STOXX 50",    ticker: "^STOXX50E",flag: "🇪🇺", group: "Europe" },
+  "^IBEX":    { label: "IBEX 35",          ticker: "^IBEX",    flag: "🇪🇸", group: "Europe" },
+  "FTSEMIB.MI":{ label: "FTSE MIB",       ticker: "FTSEMIB",  flag: "🇮🇹", group: "Europe" },
+  "^AEX":     { label: "AEX",             ticker: "^AEX",     flag: "🇳🇱", group: "Europe" },
+  "^SSMI":    { label: "SMI",             ticker: "^SSMI",    flag: "🇨🇭", group: "Europe" },
+  // Asia Pacific
+  "^N225":    { label: "Nikkei 225",      ticker: "^N225",    flag: "🇯🇵", group: "AsiaPacific" },
+  "^NSEI":    { label: "NIFTY 50",        ticker: "^NSEI",    flag: "🇮🇳", group: "AsiaPacific" },
+  "^BSESN":   { label: "BSE SENSEX",      ticker: "^BSESN",   flag: "🇮🇳", group: "AsiaPacific" },
+  "000001.SS":{ label: "Shanghai Comp.",  ticker: "000001.SS",flag: "🇨🇳", group: "AsiaPacific" },
+  "^HSI":     { label: "Hang Seng",       ticker: "^HSI",     flag: "🇭🇰", group: "AsiaPacific" },
+  "^KS11":    { label: "KOSPI",           ticker: "^KS11",    flag: "🇰🇷", group: "AsiaPacific" },
+  "^TWII":    { label: "TAIEX",           ticker: "^TWII",    flag: "🇹🇼", group: "AsiaPacific" },
+  "^AXJO":    { label: "ASX 200",         ticker: "^AXJO",    flag: "🇦🇺", group: "AsiaPacific" },
+  "^STI":     { label: "Straits Times",   ticker: "^STI",     flag: "🇸🇬", group: "AsiaPacific" },
 };
 
-const FLAG: Record<string, string> = {
-  US: "🇺🇸", JP: "🇯🇵", IN: "🇮🇳", DE: "🇩🇪", GB: "🇬🇧",
+const GROUP_LABELS: Record<RegionGroup, string> = {
+  US:          "🇺🇸 US Markets",
+  Americas:    "🇺🇸 Americas",
+  Europe:      "🇪🇺 Europe",
+  AsiaPacific: "🌏 Asia Pacific",
 };
+
+const FLAG: Record<string, string> = {}; // kept for tape fallback
 
 // Index card
 function IndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
-  const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, region: "US" };
+  const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, ticker: item.symbol, flag: "🌐", group: "US" as RegionGroup };
   return (
     <div className={`rounded-xl border p-4 flex flex-col gap-2 transition-all hover:scale-[1.02] duration-200 ${
       up ? "bg-green-500/5 border-green-500/20 hover:border-green-500/35" : "bg-red-500/5 border-red-500/20 hover:border-red-500/35"
@@ -95,7 +124,7 @@ function IndexCard({ item }: { item: MarketItem }) {
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-sm">{FLAG[meta.region] ?? ""}</span>
+            <span className="text-sm">{meta.flag}</span>
             <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider truncate">{meta.label}</p>
           </div>
           <p className="text-xl font-bold tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
@@ -125,10 +154,10 @@ function TickerTape({ indices }: { indices: MarketItem[] }) {
       <div className="flex items-center gap-8 animate-ticker whitespace-nowrap" style={{ animation: "tickerScroll 35s linear infinite" }}>
         {items.map((item, i) => {
           const up = item.changePct >= 0;
-          const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, region: "US" };
+          const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, ticker: item.symbol, flag: "🌐", group: "US" as RegionGroup };
           return (
             <span key={i} className="flex items-center gap-2 text-xs shrink-0">
-              <span>{FLAG[meta.region] ?? ""}</span>
+              <span>{meta.flag}</span>
               <span className="font-mono font-bold text-foreground">{meta.label}</span>
               <span className="font-mono text-muted-foreground/50 text-xs">{meta.ticker}</span>
               <span className="font-mono tabular-nums text-foreground/70">{fmtPrice(item.price)}</span>
@@ -217,32 +246,31 @@ export default function MarketOverview() {
             <TickerTape indices={overview.indices} />
           )}
 
-          {/* Index cards — US + Global */}
+          {/* Index cards — grouped by region */}
           {overview?.indices && overview.indices.length > 0 && (() => {
-            const us     = overview.indices.filter(i => ["^GSPC","^IXIC","^DJI","^NYC"].includes(i.symbol));
-            const global = overview.indices.filter(i => !["^GSPC","^IXIC","^DJI","^NYC"].includes(i.symbol));
+            const groups: Record<RegionGroup, typeof overview.indices> = {
+              US: [], Americas: [], Europe: [], AsiaPacific: []
+            };
+            overview.indices.forEach(item => {
+              const g = INDEX_LABELS[item.symbol]?.group ?? "US";
+              groups[g].push(item);
+            });
             return (
-              <div className="space-y-3">
-                {us.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <span>🇺🇸</span> US Markets
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {us.map(item => <IndexCard key={item.symbol} item={item} />)}
+              <div className="space-y-4">
+                {(Object.keys(groups) as RegionGroup[]).map(group => {
+                  const items = groups[group];
+                  if (!items.length) return null;
+                  return (
+                    <div key={group}>
+                      <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-2">
+                        {GROUP_LABELS[group]}
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {items.map(item => <IndexCard key={item.symbol} item={item} />)}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {global.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <Globe className="w-3 h-3" /> Global Markets
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {global.map(item => <IndexCard key={item.symbol} item={item} />)}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             );
           })()}
