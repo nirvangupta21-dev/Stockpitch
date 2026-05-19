@@ -337,12 +337,28 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const meta = data.chart?.result?.[0]?.meta;
       if (!meta) return res.status(404).json({ message: "Ticker not found" });
 
-      // Fetch market cap from v10 in parallel
-      const [extraData] = await Promise.allSettled([fetchYahooV10Quote(ticker.toUpperCase())]);
-      const extra = extraData.status === "fulfilled" ? extraData.value : null;
+      // v8 chart no longer returns marketCap — fetch from screener cache
       const prevClose = meta.previousClose || meta.chartPreviousClose || meta.regularMarketPreviousClose;
       const price = meta.regularMarketPrice;
-      const marketCap = meta.marketCap || extra?.marketCap || null;
+      let marketCap: number | null = meta.marketCap || null;
+      if (!marketCap) {
+        try {
+          // most_actives screener reliably returns marketCap for major stocks
+          const screeners = ["most_actives", "day_gainers", "day_losers", "small_cap_gainers"];
+          for (const scrId of screeners) {
+            if (marketCap) break;
+            const sRes = await fetch(
+              `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=${scrId}&count=250`,
+              { headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" } }
+            );
+            if (!sRes.ok) continue;
+            const sData = await sRes.json();
+            const quotes: any[] = sData?.finance?.result?.[0]?.quotes || [];
+            const match = quotes.find((q: any) => q.symbol?.toUpperCase() === ticker);
+            if (match?.marketCap) marketCap = match.marketCap;
+          }
+        } catch {}
+      }
 
       // Enforce NYSE / NASDAQ only
       const exchange = (meta.fullExchangeName || meta.exchangeName || "").toLowerCase();
@@ -641,8 +657,6 @@ export async function registerRoutes(httpServer: Server, app: Express) {
             recommendationMean: m.recommendationMean || null,
             revenueGrowthForward: null,
             earningsGrowthForward: null,
-            bookValuePerShare: m.bookValue || null,
-            operatingCashFlow: m.operatingCashflow || null,
           };
         }
       }

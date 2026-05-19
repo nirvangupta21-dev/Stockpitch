@@ -180,7 +180,7 @@ function ROICalculator({ currentValue, costBasis }: { currentValue: number; cost
           <span className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>ROI Calculator</span>
           {actualROI !== null && (
             <span className={`text-xs font-bold px-2 py-0.5 rounded-md tabular-nums ${
-              actualROI >= 0 ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+              actualROI >= 0 ? "bg-green-500/20 text-green-300 border border-green-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"
             }`}>
               Portfolio: {actualROI >= 0 ? "+" : ""}{actualROI.toFixed(1)}% actual ROI
             </span>

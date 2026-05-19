@@ -235,12 +235,19 @@ function ExchangePanel({ exchangeId }: { exchangeId: string }) {
       {/* Sections */}
       {!isLoading && total > 0 && (
         <div className="space-y-5">
+          <>
           <IPOSection
             title="Upcoming Listings"
             icon={<Calendar className="w-4 h-4 text-blue-400" />}
             ipos={upcoming}
             colHeaders={["Company", "IPO Date", "Price", "Change", "Mkt Cap", "Status"]}
           />
+          {upcoming.length > 0 && (
+            <p className="text-xs text-muted-foreground/50 -mt-3 px-1">
+              IPO dates and pricing shown as TBA until officially priced. Change column reflects post-listing performance only.
+            </p>
+          )}
+          </>
           <IPOSection
             title="Recent Listings"
             icon={<TrendingUp className="w-4 h-4 text-green-400" />}

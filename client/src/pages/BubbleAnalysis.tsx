@@ -245,7 +245,7 @@ export default function BubbleAnalysis() {
                   <PolarGrid stroke="hsl(0 0% 18%)" />
                   <PolarAngleAxis
                     dataKey="sector"
-                    tick={{ fontSize: 11, fill: "hsl(0 0% 55%)", fontFamily: "var(--font-mono)" }}
+                    tick={{ fontSize: 10, fill: "hsl(0 0% 65%)", fontFamily: "var(--font-body)" }}
                     tickLine={false}
                   />
                   <PolarRadiusAxis
