@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { restoreBackupIfNeeded } from "./storage";
+import { setupAuth } from "./auth";
 
 const app = express();
 const httpServer = createServer(app);
@@ -22,6 +23,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+setupAuth(app);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -94,14 +96,14 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
   httpServer.listen(
     {
       port,
-      host: "0.0.0.0",
-      reusePort: true,
+      host,
     },
     () => {
-      log(`serving on port ${port}`);
+      log(`serving on http://${host}:${port}`);
     },
   );
 })();

@@ -3,7 +3,7 @@ import {
   watchlist, type InsertWatchlist, type Watchlist,
   portfolio, type InsertPortfolio, type PortfolioPosition,
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 
@@ -15,7 +15,7 @@ const BACKUP_PATHS = [
 ];
 
 // ── Backup helpers ─────────────────────────────────────────────────────────
-function writeBackup(positions: PortfolioPosition[]): void {
+function writeBackup(positions: PortfolioPosition[], userId = "guest"): void {
   const payload = JSON.stringify(positions, null, 2);
   let wrote = false;
   for (const p of BACKUP_PATHS) {
@@ -24,7 +24,7 @@ function writeBackup(positions: PortfolioPosition[]): void {
       fs.mkdirSync(path.dirname(p), { recursive: true });
       fs.writeFileSync(p, payload, "utf-8");
       wrote = true;
-      console.log(`[portfolio] Backup written to ${p} (${positions.length} positions)`);
+      console.log(`[portfolio] Backup written to ${p} (${positions.length} positions for ${userId})`);
       break; // write to first writable path
     } catch (e) {
       // try next path
@@ -82,40 +82,41 @@ export function restoreBackupIfNeeded(): void {
 
 export interface IStorage {
   // Watchlist
-  getWatchlist(): Watchlist[];
-  addToWatchlist(entry: InsertWatchlist): Watchlist;
-  removeFromWatchlist(id: number): void;
+  getWatchlist(userId: string): Watchlist[];
+  addToWatchlist(userId: string, entry: InsertWatchlist): Watchlist;
+  removeFromWatchlist(userId: string, id: number): void;
 
   // Portfolio
-  getPortfolio(): PortfolioPosition[];
-  upsertPosition(pos: InsertPortfolio): PortfolioPosition;
-  deletePosition(id: string): void;
+  getPortfolio(userId: string): PortfolioPosition[];
+  upsertPosition(userId: string, pos: InsertPortfolio): PortfolioPosition;
+  deletePosition(userId: string, id: string): void;
 }
 
 export class DatabaseStorage implements IStorage {
   // ── Watchlist ──────────────────────────────────────────────────────────────
-  getWatchlist(): Watchlist[] {
-    return db.select().from(watchlist).all();
+  getWatchlist(userId: string): Watchlist[] {
+    return db.select().from(watchlist).where(eq(watchlist.userId, userId)).all();
   }
-  addToWatchlist(entry: InsertWatchlist): Watchlist {
-    return db.insert(watchlist).values(entry).returning().get();
+  addToWatchlist(userId: string, entry: InsertWatchlist): Watchlist {
+    return db.insert(watchlist).values({ ...entry, userId }).returning().get();
   }
-  removeFromWatchlist(id: number): void {
-    db.delete(watchlist).where(eq(watchlist.id, id)).run();
+  removeFromWatchlist(userId: string, id: number): void {
+    db.delete(watchlist).where(and(eq(watchlist.id, id), eq(watchlist.userId, userId))).run();
   }
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
-  getPortfolio(): PortfolioPosition[] {
-    return db.select().from(portfolio).all();
+  getPortfolio(userId: string): PortfolioPosition[] {
+    return db.select().from(portfolio).where(eq(portfolio.userId, userId)).all();
   }
 
-  upsertPosition(pos: InsertPortfolio): PortfolioPosition {
+  upsertPosition(userId: string, pos: InsertPortfolio): PortfolioPosition {
     const result = db
       .insert(portfolio)
-      .values(pos)
+      .values({ ...pos, userId })
       .onConflictDoUpdate({
         target: portfolio.id,
         set: {
+          userId,
           ticker:       pos.ticker,
           name:         pos.name,
           shares:       pos.shares,
@@ -127,14 +128,14 @@ export class DatabaseStorage implements IStorage {
       .returning()
       .get();
     // Write backup after every change
-    writeBackup(this.getPortfolio());
+    writeBackup(this.getPortfolio(userId), userId);
     return result;
   }
 
-  deletePosition(id: string): void {
-    db.delete(portfolio).where(eq(portfolio.id, id)).run();
+  deletePosition(userId: string, id: string): void {
+    db.delete(portfolio).where(and(eq(portfolio.id, id), eq(portfolio.userId, userId))).run();
     // Write backup after every change
-    writeBackup(this.getPortfolio());
+    writeBackup(this.getPortfolio(userId), userId);
   }
 }
 

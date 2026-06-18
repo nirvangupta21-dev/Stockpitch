@@ -18,6 +18,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { useSettings } from "@/lib/settings";
+import { useAuth } from "@/lib/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Position {
@@ -839,6 +840,7 @@ function ControlsGuide() {
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function Settings() {
   const { settings, update, reset } = useSettings();
+  const { user } = useAuth();
   const [modal, setModal] = useState<{ open: boolean; editing?: Position }>({ open: false });
   const [saved, setSaved] = useState(false);
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
@@ -1061,6 +1063,17 @@ export default function Settings() {
 
       {/* ─── PORTFOLIO SECTION ─────────────────────────────────────────────── */}
       <Section title="My Portfolio" icon={PieChart}>
+        <div className="mb-4 rounded-lg border border-border/40 bg-secondary/30 px-4 py-3">
+          <p className="text-sm font-semibold text-foreground">
+            {user ? `${user.name}'s portfolio` : "Guest portfolio"}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {user
+              ? "Positions and watchlists are saved to this account."
+              : "Sign in from the top bar to keep a private portfolio across devices."}
+          </p>
+        </div>
+
         {/* Summary KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[

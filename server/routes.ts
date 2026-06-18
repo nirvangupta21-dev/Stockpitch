@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
-import { insertWatchlistSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertWatchlistSchema } from "@shared/schema";
 import { getNews } from "./news";
+import { accountId, type AuthenticatedRequest } from "./auth";
 
 // Yahoo Finance API proxy
 async function fetchYahooQuote(ticker: string) {
@@ -139,81 +140,6 @@ async function fetchYahooFundamentalsV2(ticker: string) {
     return r;
   } catch { return null; }
 }
-// We replace the internal call below with V7
-async function _fetchYahooFundamentals_unused(ticker: string) {
-  try {
-    const modules = [""].join(",");
-    const r = null;
-    if (!r) return null;
-
-    const fd = r.financialData || {};
-    const ks = r.defaultKeyStatistics || {};
-    const sd = r.summaryDetail || {};
-    const et = r.earningsTrend?.trend || [];
-    const is = r.incomeStatementHistory?.incomeStatementHistory || [];
-    const cf = r.cashflowStatementHistory?.cashflowStatements || [];
-
-    // Revenue growth estimate from analyst trends
-    const nextYearRevGrowth = et.find((t: any) => t.period === "+1y")?.revenueEstimate?.growth?.raw || null;
-    const currentRevGrowth = et.find((t: any) => t.period === "0y")?.revenueEstimate?.growth?.raw || null;
-
-    // Historical income statements for margin calc
-    const latestIS = is[0] || {};
-    const revenue = latestIS.totalRevenue?.raw || fd.totalRevenue?.raw || null;
-    const netIncome = latestIS.netIncome?.raw || null;
-    const ebitda = fd.ebitda?.raw || null;
-
-    // Free cash flow
-    const latestCF = cf[0] || {};
-    const operatingCF = latestCF.totalCashFromOperatingActivities?.raw || fd.operatingCashflow?.raw || null;
-    const capex = latestCF.capitalExpenditures?.raw || null;
-    const freeCashFlow = operatingCF && capex ? operatingCF + capex : fd.freeCashflow?.raw || null; // capex is negative
-
-    return {
-      // Growth
-      revenueGrowthForward: nextYearRevGrowth || currentRevGrowth,
-      earningsGrowthForward: et.find((t: any) => t.period === "+1y")?.epsEstimate?.growth?.raw || null,
-      revenueGrowthTTM: fd.revenueGrowth?.raw || null,
-      earningsGrowthTTM: fd.earningsGrowth?.raw || null,
-
-      // Profitability
-      grossMargin: fd.grossMargins?.raw || null,
-      operatingMargin: fd.operatingMargins?.raw || null,
-      netMargin: fd.profitMargins?.raw || null,
-      returnOnEquity: fd.returnOnEquity?.raw || null,
-      returnOnAssets: fd.returnOnAssets?.raw || null,
-
-      // Cash flow
-      freeCashFlow,
-      operatingCashFlow: operatingCF,
-      revenue,
-      ebitda,
-      netIncome,
-
-      // Valuation multiples (current)
-      forwardPE: ks.forwardPE?.raw || null,
-      trailingPE: ks.trailingPE?.raw || sd.trailingPE?.raw || null,
-      priceToBook: ks.priceToBook?.raw || null,
-      enterpriseValue: ks.enterpriseValue?.raw || null,
-      evToEbitda: ks.enterpriseToEbitda?.raw || null,
-      evToRevenue: ks.enterpriseToRevenue?.raw || null,
-      beta: ks.beta?.raw || sd.beta?.raw || null,
-      sharesOutstanding: ks.sharesOutstanding?.raw || null,
-      bookValuePerShare: ks.bookValue?.raw || null,
-
-      // Dividend
-      dividendYield: sd.dividendYield?.raw || null,
-
-      // Analyst targets
-      targetMeanPrice: fd.targetMeanPrice?.raw || null,
-      targetMedianPrice: fd.targetMedianPrice?.raw || null,
-      targetHighPrice: fd.targetHighPrice?.raw || null,
-      targetLowPrice: fd.targetLowPrice?.raw || null,
-      recommendationMean: fd.recommendationMean?.raw || null,
-    };
-  } catch { return null; }
-}
-
 async function fetchYahooHistory(ticker: string, range: string = "1y") {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=${range}`;
   const res = await fetch(url, {
@@ -1046,37 +972,36 @@ ${stockContext}` : ""}`;
   });
 
   // Watchlist routes
-  app.get("/api/watchlist", (_req, res) => {
-    res.json(storage.getWatchlist());
+  app.get("/api/watchlist", (req: AuthenticatedRequest, res) => {
+    res.json(storage.getWatchlist(accountId(req)));
   });
 
-  app.post("/api/watchlist", (req, res) => {
+  app.post("/api/watchlist", (req: AuthenticatedRequest, res) => {
     const parsed = insertWatchlistSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
-    const entry = storage.addToWatchlist(parsed.data);
+    const entry = storage.addToWatchlist(accountId(req), parsed.data);
     res.json(entry);
   });
 
-  app.delete("/api/watchlist/:id", (req, res) => {
-    storage.removeFromWatchlist(parseInt(req.params.id));
+  app.delete("/api/watchlist/:id", (req: AuthenticatedRequest, res) => {
+    storage.removeFromWatchlist(accountId(req), parseInt(String(req.params.id), 10));
     res.json({ success: true });
   });
 
   // Portfolio routes
-  app.get("/api/portfolio", (_req, res) => {
-    res.json(storage.getPortfolio());
+  app.get("/api/portfolio", (req: AuthenticatedRequest, res) => {
+    res.json(storage.getPortfolio(accountId(req)));
   });
 
-  app.post("/api/portfolio", (req, res) => {
-    const { insertPortfolioSchema } = require("@shared/schema");
+  app.post("/api/portfolio", (req: AuthenticatedRequest, res) => {
     const parsed = insertPortfolioSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
-    const pos = storage.upsertPosition(parsed.data);
+    const pos = storage.upsertPosition(accountId(req), parsed.data);
     res.json(pos);
   });
 
-  app.delete("/api/portfolio/:id", (req, res) => {
-    storage.deletePosition(req.params.id);
+  app.delete("/api/portfolio/:id", (req: AuthenticatedRequest, res) => {
+    storage.deletePosition(accountId(req), String(req.params.id));
     res.json({ success: true });
   });
 }

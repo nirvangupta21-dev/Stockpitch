@@ -18,8 +18,10 @@ function markSession(): void {
 import IntroScreen from "@/components/IntroScreen";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
+import { AuthProvider } from "./lib/auth";
 import { Toaster } from "@/components/ui/toaster";
 import Logo from "@/components/Logo";
+import AccountMenu from "@/components/AccountMenu";
 import SearchBar from "@/components/SearchBar";
 import Dashboard from "./pages/Dashboard";
 import News from "./pages/News";
@@ -114,6 +116,8 @@ function AppInner() {
               </button>
             ))}
           </nav>
+
+          <AccountMenu />
         </div>
       </header>
 
@@ -145,9 +149,11 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SettingsProvider>
-        <AppInner />
-      </SettingsProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <AppInner />
+        </SettingsProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
