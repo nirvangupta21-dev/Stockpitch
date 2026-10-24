@@ -5,3 +5,9 @@ release/
 *.db
 *.log
 .env
+# runtime data files (never commit user holdings)
+portfolio_backup*.json
+portfolio_backups/
+fundamentals_cache.json
+sessions.db*
+stockpitch.db*

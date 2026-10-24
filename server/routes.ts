@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
-import { insertPortfolioSchema, insertWatchlistSchema } from "@shared/schema";
+import { db } from "./db";
+import { insertPortfolioSchema, insertWatchlistSchema, users } from "@shared/schema";
 import { getNews } from "./news";
 import { accountId, type AuthenticatedRequest } from "./auth";
 
@@ -228,6 +229,17 @@ async function fetchFromAlphaVantage(ticker: string): Promise<any | null> {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express) {
+  // Self-contained health check — does not depend on Yahoo Finance, so an
+  // upstream outage never fails a deploy.
+  app.get("/api/health", (_req, res) => {
+    try {
+      db.select().from(users).limit(1).all();
+      res.json({ ok: true, db: "up" });
+    } catch {
+      res.status(503).json({ ok: false, db: "down" });
+    }
+  });
+
   // Search for ticker symbols
   app.get("/api/search", async (req, res) => {
     try {

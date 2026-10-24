@@ -54,19 +54,13 @@ Open `http://localhost:5000` in your browser.
 
 ### Option 4 — Run locally (development)
 
-**Requirements:** Node.js 20+, Python 3.9+
+**Requirements:** Node.js 20+
 
 ```bash
 # 1. Install Node dependencies
 npm install
 
-# 2. Install Python dependency (for fair value fundamentals)
-pip install yfinance
-
-# 3. Start the Python microservice (in a separate terminal)
-python3 server/fundamentals_service.py 5001
-
-# 4. Start the dev server
+# 2. Start the dev server
 npm run dev
 ```
 
@@ -80,10 +74,9 @@ Open `http://localhost:5000`.
 Browser
   └── React (Vite) frontend
         └── Express backend (Node.js, port 5000)
+              ├── SQLite (better-sqlite3 / Drizzle) ← users, sessions, portfolio, watchlist
               ├── Yahoo Finance v8 API  ← quotes, history, screener
-              ├── Yahoo Finance RSS     ← news feeds
-              └── Python microservice (port 5001)
-                    └── yfinance        ← fundamentals for Fair Value
+              └── Yahoo Finance RSS     ← news feeds
 ```
 
 The Express server serves both the API (`/api/*`) and the static frontend from a single port — no CORS configuration needed.
@@ -96,14 +89,17 @@ The Express server serves both the API (`/api/*`) and the static frontend from a
 |---|---|---|
 | `PORT` | `5000` | Port the server listens on |
 | `NODE_ENV` | `development` | Set to `production` for optimized serving |
+| `SESSION_SECRET` | random per-boot (prod) | Secret for signing session cookies. **Set this in your host's dashboard** so logins survive restarts. |
+| `AUTH_RATE_LIMIT` | `10` | Signup/login attempts per 15 minutes per IP |
+| `LOG_API_BODIES` | `0` | Set to `1` to include API response bodies in logs (debugging only — may contain user data) |
 
 ---
 
 ## Tech Stack
 
 - **Frontend:** React 18, Vite, Tailwind CSS, shadcn/ui, Recharts, TanStack Query
-- **Backend:** Express.js (Node.js), better-sqlite3 / Drizzle ORM
-- **Data:** Yahoo Finance (public API), yfinance (Python)
+- **Backend:** Express.js (Node.js), better-sqlite3 / Drizzle ORM, express-session
+- **Data:** Yahoo Finance (public API)
 - **Charts:** Recharts (AreaChart, BarChart, RadarChart, PieChart)
 - **Export:** SheetJS (xlsx)
 

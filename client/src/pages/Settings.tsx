@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { savePortfolioToCookie, loadPortfolioFromCookie, cookieHasPositions } from "@/lib/portfolioCookie";
+import { savePortfolioToCookie, loadPortfolioFromCookie, cookieHasPositions, clearPortfolioCookie, clearLegacyPortfolioCookie } from "@/lib/portfolioCookie";
 import * as XLSX from "xlsx";
 import {
   Settings2, Plus, Trash2, Download, RefreshCw,
@@ -840,7 +840,7 @@ function ControlsGuide() {
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function Settings() {
   const { settings, update, reset } = useSettings();
-  const { user } = useAuth();
+  const { user, accountKey } = useAuth();
   const [modal, setModal] = useState<{ open: boolean; editing?: Position }>({ open: false });
   const [saved, setSaved] = useState(false);
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
@@ -856,21 +856,26 @@ export default function Settings() {
     staleTime: 10000,
   });
 
-  // ── Show restore banner if server is empty but cookie has saved positions ──
+  // ── Show restore banner if server is empty but this account's cookie has saved positions ──
   useEffect(() => {
-    if (!posLoading && positions.length === 0 && cookieHasPositions()) {
+    if (!posLoading && accountKey && positions.length === 0 && cookieHasPositions(accountKey)) {
       setShowRestoreBanner(true);
     } else {
       setShowRestoreBanner(false);
     }
-  }, [posLoading, positions.length]);
+  }, [posLoading, positions.length, accountKey]);
+
+  // ── One-time cleanup of the pre-accounts cookie (cannot be attributed to an account) ──
+  useEffect(() => {
+    clearLegacyPortfolioCookie();
+  }, []);
 
   // ── Save to cookie whenever positions change ───────────────────────────────
   useEffect(() => {
-    if (!posLoading && positions.length > 0) {
-      savePortfolioToCookie(positions);
+    if (!posLoading && accountKey && positions.length > 0) {
+      savePortfolioToCookie(positions, accountKey);
     }
-  }, [positions, posLoading]);
+  }, [positions, posLoading, accountKey]);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const upsertMutation = useMutation({
@@ -886,12 +891,18 @@ export default function Settings() {
       const res = await apiRequest("DELETE", `/api/portfolio/${id}`);
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] }),
+    onSuccess: () => {
+      // If that was the last position, drop the saved cookie backup too —
+      // otherwise the restore banner would resurrect it after a reload.
+      if (accountKey && positions.length === 1) clearPortfolioCookie(accountKey);
+      queryClient.invalidateQueries({ queryKey: ["/api/portfolio"] });
+    },
   });
 
   // ── Restore from cookie ────────────────────────────────────────────────────
   const restoreFromCookie = useCallback(async () => {
-    const saved = loadPortfolioFromCookie();
+    if (!accountKey) return;
+    const saved = loadPortfolioFromCookie(accountKey);
     if (!saved || saved.length === 0) return;
     setRestoring(true);
     try {
@@ -907,7 +918,7 @@ export default function Settings() {
     } finally {
       setRestoring(false);
     }
-  }, []);
+  }, [accountKey]);
 
   // Fetch live prices for all portfolio tickers
   const tickers = [...new Set(positions.map(p => p.ticker))];

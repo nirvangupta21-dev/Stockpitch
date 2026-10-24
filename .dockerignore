@@ -4,3 +4,7 @@ dist
 *.db
 *.log
 .env
+portfolio_backup*.json
+portfolio_backups/
+fundamentals_cache.json
+sessions.db*

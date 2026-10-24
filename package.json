@@ -3,90 +3,17 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
-  "description": "Investor Intelligence Platform — NYSE & NASDAQ stock analysis",
+  "description": "Investor Intelligence Platform \u2014 NYSE & NASDAQ stock analysis",
   "author": "Veridian",
-  "main": "electron/main.js",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "electron": "electron .",
-    "electron:build": "npm run build && electron-builder",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux"
-  },
-  "build": {
-    "appId": "com.pitchstock.app",
-    "productName": "Veridian",
-    "directories": {
-      "buildResources": "electron",
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "server/fundamentals_service.py",
-      "electron/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "dist",
-        "to": "dist"
-      },
-      {
-        "from": "server/fundamentals_service.py",
-        "to": "server/fundamentals_service.py"
-      }
-    ],
-    "mac": {
-      "category": "public.app-category.finance",
-      "icon": "electron/icon.icns",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ]
-    },
-    "win": {
-      "icon": "electron/icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "linux": {
-      "icon": "electron/icon.png",
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "category": "Finance"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "electron/icon.ico",
-      "uninstallerIcon": "electron/icon.ico"
-    }
+    "test": "npm run build && node scripts/test-accounts.mjs"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
-    "@jridgewell/trace-mapping": "^0.3.25",
     "@radix-ui/react-accordion": "^1.2.4",
     "@radix-ui/react-alert-dialog": "^1.1.7",
     "@radix-ui/react-aspect-ratio": "^1.1.3",
@@ -120,32 +47,23 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.4",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.0.1",
     "express-session": "^1.18.1",
     "fast-xml-parser": "^5.5.9",
-    "framer-motion": "^11.13.1",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.453.0",
-    "memorystore": "^1.6.7",
-    "next-themes": "^0.4.6",
-    "passport": "^0.7.0",
-    "passport-local": "^1.0.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.55.0",
-    "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "tw-animate-css": "^1.2.5",
     "vaul": "^1.1.2",
-    "wouter": "^3.3.5",
-    "ws": "^8.18.0",
     "xlsx": "^0.18.5",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0"
@@ -157,11 +75,8 @@
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.0",
     "@types/node": "20.19.27",
-    "@types/passport": "^1.0.16",
-    "@types/passport-local": "^1.0.38",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
-    "@types/ws": "^8.5.13",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.31.8",

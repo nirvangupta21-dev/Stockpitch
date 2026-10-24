@@ -2,32 +2,35 @@ import { db } from "./db";
 import {
   watchlist, type InsertWatchlist, type Watchlist,
   portfolio, type InsertPortfolio, type PortfolioPosition,
+  users,
 } from "@shared/schema";
 import { and, eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 
-// Try multiple paths — Render's /opt/render/project persists across restarts
-// even on the free tier (it's the build cache directory)
-const BACKUP_PATHS = [
-  "/opt/render/project/portfolio_backup.json", // Render persistent build dir
-  path.resolve("portfolio_backup.json"),         // local fallback
+// Backups are written per account so two users can never overwrite each
+// other's data. On hosts with ephemeral filesystems these files are best-effort
+// only — a durable database is the real fix.
+const BACKUP_DIRS = [
+  "/opt/render/project/portfolio_backups", // Render build dir (may persist longer)
+  path.resolve("portfolio_backups"),       // local fallback
 ];
 
+type BackupFile = { userId: string; positions: PortfolioPosition[] };
+
 // ── Backup helpers ─────────────────────────────────────────────────────────
-function writeBackup(positions: PortfolioPosition[], userId = "guest"): void {
-  const payload = JSON.stringify(positions, null, 2);
+function writeBackup(positions: PortfolioPosition[], userId: string): void {
+  const payload = JSON.stringify({ userId, positions }, null, 2);
   let wrote = false;
-  for (const p of BACKUP_PATHS) {
+  for (const dir of BACKUP_DIRS) {
     try {
-      // Ensure directory exists
-      fs.mkdirSync(path.dirname(p), { recursive: true });
-      fs.writeFileSync(p, payload, "utf-8");
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, `${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
+      fs.writeFileSync(file, payload, "utf-8");
       wrote = true;
-      console.log(`[portfolio] Backup written to ${p} (${positions.length} positions for ${userId})`);
-      break; // write to first writable path
-    } catch (e) {
-      // try next path
+      break; // write to first writable dir
+    } catch {
+      // try next dir
     }
   }
   if (!wrote) console.warn("[portfolio] Could not write backup to any path");
@@ -35,46 +38,35 @@ function writeBackup(positions: PortfolioPosition[], userId = "guest"): void {
 
 export function restoreBackupIfNeeded(): void {
   try {
-    // Check if SQLite already has data
-    const existing = db.select().from(portfolio).all();
-    if (existing.length > 0) {
-      console.log(`[portfolio] SQLite has ${existing.length} positions — no restore needed`);
-      return;
-    }
-
-    // Try each backup path in order
-    let positions: PortfolioPosition[] | null = null;
-    for (const p of BACKUP_PATHS) {
-      if (fs.existsSync(p)) {
+    // Re-seed each account's positions from its own backup file, but only
+    // when that account still exists and currently has no positions. This
+    // avoids seeding orphaned rows for accounts that no longer exist.
+    const existingUserIds = new Set(db.select({ id: users.id }).from(users).all().map(u => u.id));
+    for (const dir of BACKUP_DIRS) {
+      let files: string[] = [];
+      try {
+        files = fs.readdirSync(dir).filter(f => f.endsWith(".json"));
+      } catch {
+        continue;
+      }
+      for (const file of files) {
         try {
-          positions = JSON.parse(fs.readFileSync(p, "utf-8"));
-          console.log(`[portfolio] Found backup at ${p} with ${positions?.length ?? 0} positions`);
-          break;
+          const parsed = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as BackupFile;
+          if (!parsed?.userId || !Array.isArray(parsed.positions)) continue;
+          if (!existingUserIds.has(parsed.userId)) continue;
+          const current = db.select().from(portfolio).where(eq(portfolio.userId, parsed.userId)).all();
+          if (current.length > 0) continue;
+          if (parsed.positions.length === 0) continue;
+          for (const pos of parsed.positions) {
+            db.insert(portfolio).values({ ...pos, userId: parsed.userId }).onConflictDoUpdate({
+              target: portfolio.id,
+              set: { ticker: pos.ticker, name: pos.name, shares: pos.shares, avgCost: pos.avgCost, purchaseDate: pos.purchaseDate, notes: pos.notes },
+            }).run();
+          }
+          console.log(`[portfolio] Restored ${parsed.positions.length} positions for ${parsed.userId} from ${file}`);
         } catch {}
       }
     }
-
-    // Fall back to PORTFOLIO_BACKUP env var (set manually on Render if needed)
-    if (!positions && process.env.PORTFOLIO_BACKUP) {
-      try {
-        positions = JSON.parse(process.env.PORTFOLIO_BACKUP);
-        console.log(`[portfolio] Restored ${positions?.length ?? 0} positions from PORTFOLIO_BACKUP env var`);
-      } catch {}
-    }
-
-    if (!positions || positions.length === 0) {
-      console.log("[portfolio] No backup found — starting with empty portfolio");
-      return;
-    }
-
-    // Re-seed SQLite
-    for (const pos of positions) {
-      db.insert(portfolio).values(pos).onConflictDoUpdate({
-        target: portfolio.id,
-        set: { ticker: pos.ticker, name: pos.name, shares: pos.shares, avgCost: pos.avgCost, purchaseDate: pos.purchaseDate, notes: pos.notes },
-      }).run();
-    }
-    console.log(`[portfolio] SQLite re-seeded with ${positions.length} positions`);
   } catch (e) {
     console.warn("[portfolio] restore failed:", e);
   }
@@ -110,6 +102,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   upsertPosition(userId: string, pos: InsertPortfolio): PortfolioPosition {
+    // Ownership check: a client-supplied id that already belongs to a different
+    // account must never overwrite or reassign that row.
+    const existing = db.select().from(portfolio).where(eq(portfolio.id, pos.id)).get();
+    if (existing && existing.userId !== userId) {
+      const err = new Error("That position belongs to another account.") as Error & { status?: number };
+      err.status = 403;
+      throw err;
+    }
     const result = db
       .insert(portfolio)
       .values({ ...pos, userId })

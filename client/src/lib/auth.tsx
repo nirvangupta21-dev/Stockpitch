@@ -11,10 +11,14 @@ export type AccountUser = {
 
 type AuthContextValue = {
   user: AccountUser | null;
+  /** Per-browser id used to key guest (logged-out) data. */
+  guestId: string | null;
   isLoading: boolean;
   signup: (data: { name: string; email: string; password: string }) => Promise<AccountUser>;
   login: (data: { email: string; password: string }) => Promise<AccountUser>;
   logout: () => Promise<void>;
+  /** The bucket the server stores this browser's data under. */
+  accountKey: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -28,7 +32,7 @@ async function refreshPersonalData() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data, isLoading } = useQuery<{ user: AccountUser | null }>({
+  const { data, isLoading } = useQuery<{ user: AccountUser | null; guestId: string | null }>({
     queryKey: ["/api/auth/me"],
     staleTime: 60_000,
   });
@@ -58,11 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => ({
     user: data?.user ?? null,
+    guestId: data?.guestId ?? null,
     isLoading,
+    accountKey: data?.user?.id ?? data?.guestId ?? null,
     signup: async payload => (await signupMutation.mutateAsync(payload)).user,
     login: async payload => (await loginMutation.mutateAsync(payload)).user,
     logout: async () => { await logoutMutation.mutateAsync(); },
-  }), [data?.user, isLoading, loginMutation, logoutMutation, signupMutation]);
+  }), [data?.user, data?.guestId, isLoading, loginMutation, logoutMutation, signupMutation]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

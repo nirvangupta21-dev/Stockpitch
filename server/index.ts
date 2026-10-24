@@ -47,11 +47,15 @@ app.use((req, res, next) => {
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
+  // Response bodies can contain user emails and holdings — only log them
+  // when explicitly enabled (LOG_API_BODIES=1) to debug a specific issue.
+  const logBodies = process.env.LOG_API_BODIES === "1";
+
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (logBodies && capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
