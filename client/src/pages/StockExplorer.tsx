@@ -321,10 +321,10 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
           <input
             data-testid="input-stock-search"
             type="text"
-            placeholder="Filter by ticker or name…"
+            placeholder="Filter stocks…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-8 pr-4 py-2 bg-secondary border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 w-56"
+            className="pl-8 pr-4 py-2 bg-secondary border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 w-52"
           />
         </div>
       </div>

@@ -4,97 +4,102 @@
 
 @layer base {
   :root {
-    /* ── Black & White base with colorful data accents ── */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 95%;
+    /* ── CYBER-TERMINAL theme: charcoal grid, acid lime, electric purple ── */
+    --background: 200 10% 5%;
+    --foreground: 180 6% 93%;
 
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 95%;
+    --card: 200 9% 7%;
+    --card-foreground: 180 6% 93%;
 
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 200 9% 7%;
+    --popover-foreground: 180 6% 93%;
 
-    --primary: 0 0% 92%;
-    --primary-foreground: 0 0% 5%;
+    --primary: 81 92% 60%;
+    --primary-foreground: 200 30% 6%;
 
-    --secondary: 0 0% 11%;
-    --secondary-foreground: 0 0% 75%;
+    --secondary: 200 8% 11%;
+    --secondary-foreground: 180 5% 75%;
 
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 200 8% 10%;
+    --muted-foreground: 190 5% 60%;
 
-    --accent: 0 0% 92%;
-    --accent-foreground: 0 0% 5%;
+    --accent: 271 80% 62%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 10%;
-    --ring: 0 0% 70%;
+    --border: 200 7% 14%;
+    --input: 200 8% 10%;
+    --ring: 81 92% 60%;
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
     /* ── Data visualization colors (keep vivid) ── */
-    --color-up: 142 71% 45%;
+    --color-up: 81 92% 50%;
     --color-down: 0 72% 51%;
     --color-cyan: 185 80% 50%;
-    --color-purple: 265 70% 60%;
+    --color-purple: 271 80% 62%;
     --color-yellow: 45 90% 55%;
     --color-blue: 210 80% 55%;
     --color-orange: 25 90% 55%;
 
     /* ── Surface tokens ── */
-    --color-surface-1: 0 0% 7%;
-    --color-surface-2: 0 0% 10%;
-    --color-surface-3: 0 0% 13%;
-    --color-border: 0 0% 15%;
-    --color-text: 0 0% 95%;
-    --color-text-muted: 0 0% 45%;
-    --color-text-faint: 0 0% 28%;
+    --color-surface-1: 200 9% 7%;
+    --color-surface-2: 200 8% 10%;
+    --color-surface-3: 200 7% 13%;
+    --color-border: 200 7% 14%;
+    --color-text: 180 6% 93%;
+    --color-text-muted: 190 5% 60%;
+    --color-text-faint: 195 4% 34%;
 
-    --font-display: 'Cabinet Grotesk', 'Inter', sans-serif;
-    --font-body: 'Satoshi', 'Inter', sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    /* Grid overlay line color */
+    --grid-line: 200 40% 60%;
+
+    --font-display: 'Silkscreen', 'JetBrains Mono', monospace;
+    --font-body: 'Space Mono', 'JetBrains Mono', monospace;
+    --font-mono: 'Space Mono', 'JetBrains Mono', monospace;
   }
 
   /* ── Light mode ── */
   .light {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 8%;
+    --background: 100 8% 97%;
+    --foreground: 200 12% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 8%;
+    --card-foreground: 200 12% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
+    --popover-foreground: 200 12% 10%;
 
-    --primary: 0 0% 12%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 81 85% 32%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 25%;
+    --secondary: 100 6% 93%;
+    --secondary-foreground: 200 8% 26%;
 
-    --muted: 0 0% 93%;
-    --muted-foreground: 0 0% 42%;
+    --muted: 100 6% 93%;
+    --muted-foreground: 200 8% 34%;
 
-    --accent: 0 0% 12%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 271 70% 48%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 85%;
-    --input: 0 0% 93%;
-    --ring: 0 0% 30%;
+    --border: 100 6% 86%;
+    --input: 100 6% 92%;
+    --ring: 81 85% 32%;
 
     --color-surface-1: 0 0% 100%;
-    --color-surface-2: 0 0% 95%;
-    --color-surface-3: 0 0% 90%;
-    --color-border: 0 0% 85%;
-    --color-text: 0 0% 8%;
-    --color-text-muted: 0 0% 42%;
-    --color-text-faint: 0 0% 60%;
+    --color-surface-2: 100 6% 95%;
+    --color-surface-3: 100 5% 90%;
+    --color-border: 100 6% 86%;
+    --color-text: 200 12% 10%;
+    --color-text-muted: 200 8% 34%;
+    --color-text-faint: 200 5% 55%;
+
+    --grid-line: 200 20% 30%;
   }
 }
 
@@ -104,23 +109,51 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+    /* Terminal grid backdrop */
+    background-image:
+      linear-gradient(hsl(var(--grid-line) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--grid-line) / 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
-  h1, h2, h3, h4, h5, h6 {
+  /* Pixel display for page titles; mono caps for section headings */
+  h1, h2 {
     font-family: var(--font-display);
+    letter-spacing: 0.02em;
+  }
+  h3, h4, h5, h6 {
+    font-family: var(--font-body);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 }
 
 /* Accent colors */
+[data-accent="lime"]   { --accent-h: 81;  --accent-s: 92%; --accent-l: 60%; }
 [data-accent="teal"]   { --accent-h: 185; --accent-s: 80%; --accent-l: 50%; }
 [data-accent="blue"]   { --accent-h: 217; --accent-s: 91%; --accent-l: 60%; }
 [data-accent="green"]  { --accent-h: 142; --accent-s: 71%; --accent-l: 45%; }
-[data-accent="purple"] { --accent-h: 265; --accent-s: 70%; --accent-l: 60%; }
+[data-accent="purple"] { --accent-h: 271; --accent-s: 80%; --accent-l: 62%; }
 [data-accent="orange"] { --accent-h: 30;  --accent-s: 90%; --accent-l: 55%; }
 
 /* Re-map --primary to use the accent variables */
 [data-accent] {
   --primary: var(--accent-h) var(--accent-s) var(--accent-l);
 }
+/* Keep lime readable on light surfaces */
+.light [data-accent="lime"],
+.light[data-accent="lime"] {
+  --primary: 81 85% 32%;
+}
+
+/* Tailwind's -400 series is tuned for dark backgrounds; darken in light mode */
+.light .text-yellow-400 { color: hsl(40 90% 30%); }
+.light .text-green-400  { color: hsl(142 70% 30%); }
+.light .text-red-400    { color: hsl(0 72% 40%); }
+.light .text-cyan-400   { color: hsl(187 85% 30%); }
+.light .text-blue-400   { color: hsl(214 90% 40%); }
+.light .text-purple-400 { color: hsl(271 70% 45%); }
+.light .text-orange-400 { color: hsl(25 90% 40%); }
 
 /* Font sizes */
 [data-fontsize="compact"]     { font-size: 13px; }
@@ -137,8 +170,8 @@
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: hsl(var(--background)); }
-::-webkit-scrollbar-thumb { background: hsl(0 0% 20%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 30%); }
+::-webkit-scrollbar-thumb { background: hsl(200 7% 20%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(81 92% 45% / 0.7); }
 
 /* Tabular nums */
 .tabular-nums { font-variant-numeric: tabular-nums lining-nums; }
@@ -149,14 +182,14 @@
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, hsl(0 0% 10%) 25%, hsl(0 0% 14%) 50%, hsl(0 0% 10%) 75%);
+  background: linear-gradient(90deg, hsl(200 9% 9%) 25%, hsl(200 8% 13%) 50%, hsl(200 9% 9%) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius);
 }
 
 /* Glow — data colors only */
-.glow-green { box-shadow: 0 0 16px hsl(142 71% 45% / 0.2); }
+.glow-green { box-shadow: 0 0 16px hsl(81 92% 50% / 0.2); }
 .glow-red   { box-shadow: 0 0 16px hsl(0 72% 51% / 0.2); }
 .glow-cyan  { box-shadow: 0 0 20px hsl(185 80% 50% / 0.15); }
 

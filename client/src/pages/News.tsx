@@ -106,7 +106,7 @@ function ImpactRadar({ impact }: { impact: Impact }) {
           <PolarGrid stroke="hsl(220,15%,20%)" />
           <PolarAngleAxis
             dataKey="sector"
-            tick={{ fontSize: 10, fill: "hsl(210,10%,55%)", fontFamily: "var(--font-mono)" }}
+            tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
           />
           <Radar
             dataKey="exposure"
@@ -148,14 +148,14 @@ function MarketImpactBars({ impact }: { impact: Impact }) {
           <XAxis
             type="number"
             tickFormatter={v => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`}
-            tick={{ fontSize: 10, fill: "hsl(210,10%,50%)", fontFamily: "var(--font-mono)" }}
+            tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             type="category"
             dataKey="market"
-            tick={{ fontSize: 10, fill: "hsl(210,10%,55%)" }}
+            tick={{ fontSize: 10, fill: "hsl(200,8%,58%)" }}
             axisLine={false}
             tickLine={false}
             width={110}
@@ -414,7 +414,7 @@ export default function News() {
         <div className="flex items-center gap-2">
           <Globe className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold" style={{ fontFamily: "var(--font-display)" }}>
-            Geopolitical &amp; Economic Events
+            Geopolitical · Economic Events
           </h1>
         </div>
         <div className="ml-auto flex items-center gap-3">

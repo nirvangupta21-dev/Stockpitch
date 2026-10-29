@@ -26,6 +26,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Cell, ReferenceLine,
   LineChart, Line, Area, AreaChart,
+  ComposedChart,
 } from "recharts";
 import { Scale, TrendingUp, TrendingDown, Minus, RefreshCw, Info, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -492,7 +493,7 @@ export default function FairValue({ ticker }: { ticker: string }) {
             {/* Confidence band mini chart */}
             <div style={{ height: 160 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analytics.confChartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                <ComposedChart data={analytics.confChartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                   <defs>
                     <linearGradient id="confBandGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="hsl(185,80%,50%)" stopOpacity={0.25} />
@@ -502,13 +503,13 @@ export default function FairValue({ ticker }: { ticker: string }) {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(0,0%,12%)" vertical={false} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 9, fill: "hsl(0,0%,35%)" }}
+                    tick={{ fontSize: 9, fill: "hsl(200,8%,58%)" }}
                     axisLine={false} tickLine={false}
                     interval={14}
                   />
                   <YAxis
                     tickFormatter={v => `$${v >= 1000 ? (v/1000).toFixed(1)+"k" : v.toFixed(0)}`}
-                    tick={{ fontSize: 9, fill: "hsl(0,0%,35%)", fontFamily: "var(--font-mono)" }}
+                    tick={{ fontSize: 9, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
                     axisLine={false} tickLine={false} width={48}
                     domain={["auto", "auto"]}
                   />
@@ -572,7 +573,7 @@ export default function FairValue({ ticker }: { ticker: string }) {
                     dot={false}
                     connectNulls={false}
                   />
-                </AreaChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
             <div className="flex gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
@@ -682,13 +683,13 @@ export default function FairValue({ ticker }: { ticker: string }) {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(0,0%,12%)" vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tick={{ fontSize: 10, fill: "hsl(0,0%,40%)" }}
+                    tick={{ fontSize: 10, fill: "hsl(200,8%,58%)" }}
                     axisLine={false} tickLine={false}
                     interval={Math.floor(analytics.chartPts.length / 8)}
                   />
                   <YAxis
                     tickFormatter={v => `$${v >= 1000 ? (v/1000).toFixed(0)+"k" : v.toFixed(0)}`}
-                    tick={{ fontSize: 10, fill: "hsl(0,0%,40%)", fontFamily: "var(--font-mono)" }}
+                    tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
                     axisLine={false} tickLine={false} width={52}
                     domain={["auto", "auto"]}
                   />
@@ -764,12 +765,12 @@ export default function FairValue({ ticker }: { ticker: string }) {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(0,0%,12%)" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 10, fill: "hsl(0,0%,45%)", fontFamily: "var(--font-mono)" }}
+                    tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
                     axisLine={false} tickLine={false}
                   />
                   <YAxis
                     tickFormatter={v => `$${v >= 1000 ? (v/1000).toFixed(0)+"k" : v.toFixed(0)}`}
-                    tick={{ fontSize: 10, fill: "hsl(0,0%,45%)", fontFamily: "var(--font-mono)" }}
+                    tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
                     axisLine={false} tickLine={false} width={52}
                   />
                   <Tooltip

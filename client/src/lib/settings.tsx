@@ -33,7 +33,7 @@ export interface AppSettings {
 
   // Appearance
   theme: "dark" | "light";
-  accentColor: "teal" | "blue" | "green" | "purple" | "orange";
+  accentColor: "lime" | "teal" | "blue" | "green" | "purple" | "orange";
   fontSize: "compact" | "normal" | "comfortable";
   compactMode: boolean;
 }
@@ -63,7 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   watchlist: ["AAPL", "NVDA", "MSFT", "GOOGL", "AMZN"],
 
   theme: "dark",
-  accentColor: "teal",
+  accentColor: "lime",
   fontSize: "normal",
   compactMode: false,
 };

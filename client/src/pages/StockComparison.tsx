@@ -518,14 +518,14 @@ function OverlayChart({ tickers, historyMap }: OverlayChartProps) {
           <XAxis
             dataKey="date"
             tickFormatter={formatXAxis}
-            tick={{ fill: "hsl(0,0%,45%)", fontSize: 11 }}
+            tick={{ fill: "hsl(200,8%,58%)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             minTickGap={40}
           />
           <YAxis
             tickFormatter={(v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`}
-            tick={{ fill: "hsl(0,0%,45%)", fontSize: 11 }}
+            tick={{ fill: "hsl(200,8%,58%)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={52}

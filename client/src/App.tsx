@@ -98,17 +98,17 @@ function AppInner() {
             <SearchBar onSelect={handleSelect} currentTicker={ticker ?? ""} />
           </div>
 
-          {/* Tab switcher */}
-          <nav className="flex items-center gap-0.5 bg-muted rounded-lg p-1 shrink-0">
+          {/* Tab switcher — terminal pill nav */}
+          <nav className="flex items-center gap-0.5 bg-muted rounded-full p-1 shrink-0">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 data-testid={`tab-${id}`}
                 onClick={() => setTab(id as TabId)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                   tab === id
-                    ? "bg-card text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -136,7 +136,7 @@ function AppInner() {
       </main>
 
       <footer className="border-t border-border/30 mt-12 py-6 px-6 text-center text-xs text-muted-foreground">
-        <p className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>Veridian</p>
+        <p className="font-bold uppercase" style={{ fontFamily: "var(--font-display)", letterSpacing: "0.08em" }}>Veridian</p>
         <p className="mt-0.5 opacity-70">Investment Research Platform · For informational purposes only · Not financial advice</p>
         <p className="mt-1 opacity-40">Data sourced from Yahoo Finance. Valuations are models, not guarantees.</p>
       </footer>

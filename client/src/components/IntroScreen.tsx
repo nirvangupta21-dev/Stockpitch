@@ -58,7 +58,7 @@ export default function IntroScreen({ onEnter }: Props) {
       className="intro-root"
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
-        background: "#080808",
+        background: "#0b0e0f",
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         overflow: "hidden",
@@ -72,8 +72,8 @@ export default function IntroScreen({ onEnter }: Props) {
         opacity: phase >= 1 ? 0.06 : 0,
         transition: "opacity 1.2s ease",
         backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)
+          linear-gradient(rgba(184,247,72,0.55) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(184,247,72,0.55) 1px, transparent 1px)
         `,
         backgroundSize: "60px 60px",
       }} />
@@ -83,7 +83,7 @@ export default function IntroScreen({ onEnter }: Props) {
         position: "absolute",
         width: 600, height: 600,
         borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%)",
+        background: "radial-gradient(circle, rgba(184,247,72,0.06) 0%, transparent 70%)",
         pointerEvents: "none",
         opacity: phase >= 2 ? 1 : 0,
         transition: "opacity 1.5s ease",
@@ -99,10 +99,10 @@ export default function IntroScreen({ onEnter }: Props) {
         <div key={i} style={{
           position: "absolute", ...style,
           width: 20, height: 20,
-          borderTop: i < 2 ? "1px solid rgba(255,255,255,0.15)" : "none",
-          borderBottom: i >= 2 ? "1px solid rgba(255,255,255,0.15)" : "none",
-          borderLeft: i % 2 === 0 ? "1px solid rgba(255,255,255,0.15)" : "none",
-          borderRight: i % 2 === 1 ? "1px solid rgba(255,255,255,0.15)" : "none",
+          borderTop: i < 2 ? "1px solid rgba(184,247,72,0.22)" : "none",
+          borderBottom: i >= 2 ? "1px solid rgba(184,247,72,0.22)" : "none",
+          borderLeft: i % 2 === 0 ? "1px solid rgba(184,247,72,0.22)" : "none",
+          borderRight: i % 2 === 1 ? "1px solid rgba(184,247,72,0.22)" : "none",
           opacity: phase >= 1 ? 1 : 0,
           transition: `opacity 0.6s ease ${i * 0.1}s`,
         }} />
@@ -111,7 +111,7 @@ export default function IntroScreen({ onEnter }: Props) {
       {/* Top scan line */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 1,
-        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+        background: "linear-gradient(90deg, transparent, rgba(184,247,72,0.4), transparent)",
         opacity: phase >= 1 ? 1 : 0,
         transition: "opacity 0.8s ease",
         animation: phase >= 1 ? "scan 4s linear infinite" : "none",
@@ -122,11 +122,11 @@ export default function IntroScreen({ onEnter }: Props) {
 
         {/* Veridian wordmark */}
         <div style={{
-          fontFamily: "'Inter', 'DM Sans', system-ui, sans-serif",
+          fontFamily: "'Silkscreen', 'Space Mono', monospace",
           fontSize: "clamp(3rem, 10vw, 6.5rem)",
           fontWeight: 800,
           letterSpacing: "0.25em",
-          color: "#f2f2f2",
+          color: "#b8f748",
           lineHeight: 1,
           minHeight: "1.1em",
           fontVariantNumeric: "tabular-nums",
@@ -136,7 +136,7 @@ export default function IntroScreen({ onEnter }: Props) {
           {phase === 2 && typed.length < BRAND.length && (
             <span style={{
               display: "inline-block", width: "0.08em", height: "0.85em",
-              background: "#f2f2f2", marginLeft: 4,
+              background: "#b8f748", marginLeft: 4,
               verticalAlign: "middle",
               animation: "blink 0.7s step-end infinite",
             }} />
@@ -147,18 +147,18 @@ export default function IntroScreen({ onEnter }: Props) {
         <div style={{
           width: phase >= 3 ? "100%" : "0%",
           height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(184,247,72,0.4), transparent)",
           margin: "18px auto",
           transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
         }} />
 
         {/* Tagline */}
         <div style={{
-          fontFamily: "'Inter', system-ui, sans-serif",
+          fontFamily: "'Space Mono', monospace",
           fontSize: "clamp(0.65rem, 2vw, 0.8rem)",
           fontWeight: 500,
           letterSpacing: "0.35em",
-          color: "rgba(255,255,255,0.35)",
+          color: "rgba(150,163,167,0.9)",
           textTransform: "uppercase",
           opacity: phase >= 3 ? 1 : 0,
           transform: phase >= 3 ? "translateY(0)" : "translateY(8px)",
@@ -170,11 +170,11 @@ export default function IntroScreen({ onEnter }: Props) {
         {/* Welcome */}
         <div style={{
           marginTop: 48,
-          fontFamily: "'Inter', system-ui, sans-serif",
+          fontFamily: "'Space Mono', monospace",
           fontSize: "clamp(1rem, 3vw, 1.4rem)",
-          fontWeight: 300,
+          fontWeight: 400,
           letterSpacing: "0.05em",
-          color: "rgba(255,255,255,0.75)",
+          color: "#b79ff7",
           opacity: phase >= 4 ? 1 : 0,
           transform: phase >= 4 ? "translateY(0)" : "translateY(12px)",
           transition: "opacity 0.8s ease, transform 0.8s ease",
@@ -193,28 +193,28 @@ export default function IntroScreen({ onEnter }: Props) {
             onClick={handleEnter}
             data-testid="button-enter"
             style={{
-              fontFamily: "'Inter', system-ui, sans-serif",
+              fontFamily: "'Space Mono', monospace",
               fontSize: "0.7rem",
               fontWeight: 600,
               letterSpacing: "0.3em",
               textTransform: "uppercase",
-              color: "#080808",
-              background: "#f2f2f2",
+              color: "#0b0e0f",
+              background: "#b8f748",
               border: "none",
-              borderRadius: 2,
+              borderRadius: 9999,
               padding: "12px 36px",
               cursor: "pointer",
               transition: "background 0.2s, transform 0.2s, box-shadow 0.2s",
-              boxShadow: "0 0 30px rgba(255,255,255,0.12)",
+              boxShadow: "0 0 30px rgba(184,247,72,0.18)",
             }}
             onMouseEnter={e => {
-              (e.target as HTMLElement).style.background = "#ffffff";
-              (e.target as HTMLElement).style.boxShadow = "0 0 50px rgba(255,255,255,0.25)";
+              (e.target as HTMLElement).style.background = "#c8ff5a";
+              (e.target as HTMLElement).style.boxShadow = "0 0 50px rgba(184,247,72,0.3)";
               (e.target as HTMLElement).style.transform = "scale(1.03)";
             }}
             onMouseLeave={e => {
-              (e.target as HTMLElement).style.background = "#f2f2f2";
-              (e.target as HTMLElement).style.boxShadow = "0 0 30px rgba(255,255,255,0.12)";
+              (e.target as HTMLElement).style.background = "#b8f748";
+              (e.target as HTMLElement).style.boxShadow = "0 0 30px rgba(184,247,72,0.18)";
               (e.target as HTMLElement).style.transform = "scale(1)";
             }}
           >
@@ -227,7 +227,7 @@ export default function IntroScreen({ onEnter }: Props) {
           marginTop: 20,
           fontSize: "0.6rem",
           letterSpacing: "0.2em",
-          color: "rgba(255,255,255,0.15)",
+          color: "rgba(184,247,72,0.22)",
           opacity: phase >= 5 ? 1 : 0,
           transition: "opacity 1s ease 0.3s",
         }}>

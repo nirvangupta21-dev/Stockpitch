@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { BarChart2, TrendingUp, TrendingDown, RefreshCw, Globe } from "lucide-react";
@@ -113,6 +114,11 @@ const GROUP_LABELS: Record<RegionGroup, string> = {
 
 const FLAG: Record<string, string> = {}; // kept for tape fallback
 
+// Yahoo sends index symbols URL-encoded (^IXIC → %5EIXIC); decode once for label lookups
+function safeDecode(s: string): string {
+  try { return decodeURIComponent(s); } catch { return s; }
+}
+
 // Index card
 function IndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
@@ -159,8 +165,8 @@ function TickerTape({ indices }: { indices: MarketItem[] }) {
             <span key={i} className="flex items-center gap-2 text-xs shrink-0">
               <span>{meta.flag}</span>
               <span className="font-mono font-bold text-foreground">{meta.label}</span>
-              <span className="font-mono text-muted-foreground/50 text-xs">{meta.ticker}</span>
-              <span className="font-mono tabular-nums text-foreground/70">{fmtPrice(item.price)}</span>
+              <span className="font-mono text-muted-foreground/70 text-xs">{meta.ticker}</span>
+              <span className="font-mono tabular-nums text-foreground/80">{fmtPrice(item.price)}</span>
               <span className={`font-mono font-bold tabular-nums ${up ? "text-green-400" : "text-red-400"}`}>
                 {fmtPct(item.changePct)}
               </span>
@@ -211,6 +217,11 @@ export default function MarketOverview() {
 
   const loading = oLoading || mLoading;
 
+  const indices = useMemo(
+    () => (overview?.indices ?? []).map(i => ({ ...i, symbol: safeDecode(i.symbol) })),
+    [overview?.indices]
+  );
+
   return (
     <div className="space-y-5" data-testid="market-overview">
       {/* Section header */}
@@ -242,16 +253,16 @@ export default function MarketOverview() {
       ) : (
         <>
           {/* Scrolling ticker tape */}
-          {overview?.indices && overview.indices.length > 0 && (
-            <TickerTape indices={overview.indices} />
+          {indices.length > 0 && (
+            <TickerTape indices={indices} />
           )}
 
           {/* Index cards — grouped by region */}
-          {overview?.indices && overview.indices.length > 0 && (() => {
-            const groups: Record<RegionGroup, typeof overview.indices> = {
+          {indices.length > 0 && (() => {
+            const groups: Record<RegionGroup, MarketItem[]> = {
               US: [], Americas: [], Europe: [], AsiaPacific: []
             };
-            overview.indices.forEach(item => {
+            indices.forEach(item => {
               const g = INDEX_LABELS[item.symbol]?.group ?? "US";
               groups[g].push(item);
             });
@@ -295,14 +306,14 @@ export default function MarketOverview() {
                     <XAxis
                       type="number"
                       tickFormatter={v => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`}
-                      tick={{ fontSize: 10, fill: "hsl(210,10%,50%)", fontFamily: "var(--font-mono)" }}
+                      tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{ fontSize: 10, fill: "hsl(210,10%,55%)", fontFamily: "var(--font-body)" }}
+                      tick={{ fontSize: 10, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-body)" }}
                       axisLine={false}
                       tickLine={false}
                       width={130}

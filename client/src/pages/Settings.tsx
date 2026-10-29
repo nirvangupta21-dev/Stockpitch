@@ -1257,6 +1257,7 @@ export default function Settings() {
         <SettingRow label="Accent Color" description="Primary highlight color throughout the app">
           <div className="flex items-center gap-3">
             {([
+              { key: "lime",   color: "hsl(81,92%,60%)"  },
               { key: "teal",   color: "hsl(185,80%,50%)"  },
               { key: "blue",   color: "hsl(217,91%,60%)"  },
               { key: "green",  color: "hsl(142,71%,45%)"  },
