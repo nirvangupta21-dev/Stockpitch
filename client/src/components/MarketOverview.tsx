@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import SectionHeader from "./SectionHeader";
 import { BarChart2, TrendingUp, TrendingDown, RefreshCw, Globe } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area,
@@ -30,23 +31,12 @@ interface OverviewData {
   sectors: MarketItem[];
 }
 
-interface MoversData {
-  gainers: Mover[];
-  losers: Mover[];
-}
-
 function fmtPct(n: number) {
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 function fmtPrice(n: number) {
   if (n >= 10000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function fmtCap(n: number | null) {
-  if (!n) return "";
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(1)}T`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  return `$${(n / 1e6).toFixed(0)}M`;
 }
 
 // Inline sparkline using SVG polyline
@@ -97,7 +87,7 @@ const INDEX_LABELS: Record<string, { label: string; ticker: string; flag: string
   "^N225":    { label: "Nikkei 225",      ticker: "^N225",    flag: "🇯🇵", group: "AsiaPacific" },
   "^NSEI":    { label: "NIFTY 50",        ticker: "^NSEI",    flag: "🇮🇳", group: "AsiaPacific" },
   "^BSESN":   { label: "BSE SENSEX",      ticker: "^BSESN",   flag: "🇮🇳", group: "AsiaPacific" },
-  "000001.SS":{ label: "Shanghai Comp.",  ticker: "000001.SS",flag: "🇨🇳", group: "AsiaPacific" },
+  "000001.SS":{ label: "Shanghai Composite",  ticker: "000001.SS",flag: "🇨🇳", group: "AsiaPacific" },
   "^HSI":     { label: "Hang Seng",       ticker: "^HSI",     flag: "🇭🇰", group: "AsiaPacific" },
   "^KS11":    { label: "KOSPI",           ticker: "^KS11",    flag: "🇰🇷", group: "AsiaPacific" },
   "^TWII":    { label: "TAIEX",           ticker: "^TWII",    flag: "🇹🇼", group: "AsiaPacific" },
@@ -119,7 +109,7 @@ function safeDecode(s: string): string {
   try { return decodeURIComponent(s); } catch { return s; }
 }
 
-// Index card
+// Index card — region micro-label keeps one uniform grid sortable at a glance
 function IndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
   const meta = INDEX_LABELS[item.symbol] ?? { label: item.symbol, ticker: item.symbol, flag: "🌐", group: "US" as RegionGroup };
@@ -127,11 +117,12 @@ function IndexCard({ item }: { item: MarketItem }) {
     <div className={`rounded-xl border p-4 flex flex-col gap-2 transition-all hover:scale-[1.02] duration-200 ${
       up ? "bg-green-500/5 border-green-500/20 hover:border-green-500/35" : "bg-red-500/5 border-red-500/20 hover:border-red-500/35"
     }`}>
+      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">{GROUP_LABELS[meta.group]}</p>
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-sm">{meta.flag}</span>
-            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider truncate">{meta.label}</p>
+            <p className="text-xs text-muted-foreground font-semibold leading-tight">{meta.label}</p>
           </div>
           <p className="text-xl font-bold tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
             {fmtPrice(item.price)}
@@ -208,40 +199,32 @@ export default function MarketOverview() {
     staleTime: 30000,
   });
 
-  const { data: movers, isLoading: mLoading } = useQuery<MoversData>({
-    queryKey: ["/api/market/movers"],
-    queryFn: () => apiRequest("GET", "/api/market/movers").then(r => r.json()),
-    refetchInterval: 60000,
-    staleTime: 30000,
-  });
+  const loading = oLoading;
 
-  const loading = oLoading || mLoading;
-
-  const indices = useMemo(
-    () => (overview?.indices ?? []).map(i => ({ ...i, symbol: safeDecode(i.symbol) })),
-    [overview?.indices]
-  );
+  const indices = useMemo(() => {
+    const seen = new Set<string>();
+    return (overview?.indices ?? [])
+      .map(i => ({ ...i, symbol: safeDecode(i.symbol) }))
+      .filter(i => (seen.has(i.symbol) ? false : (seen.add(i.symbol), true)));
+  }, [overview?.indices]);
 
   return (
     <div className="space-y-5" data-testid="market-overview">
       {/* Section header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart2 className="w-5 h-5 text-primary" />
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-            Market Overview
-          </h2>
-          <span className="text-xs text-muted-foreground">NYSE &amp; NASDAQ</span>
-        </div>
-        <button
-          onClick={() => refetchOverview()}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          data-testid="button-refresh-market"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Refresh
-        </button>
-      </div>
+      <SectionHeader
+        icon={BarChart2}
+        title="World Indexes"
+        meta={
+          <button
+            onClick={() => refetchOverview()}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-refresh-market"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+        }
+      />
 
       {loading ? (
         <div className="space-y-3">
@@ -257,31 +240,18 @@ export default function MarketOverview() {
             <TickerTape indices={indices} />
           )}
 
-          {/* Index cards — grouped by region */}
+          {/* Index cards — one uniform grid, ordered US → Americas → Europe → Asia Pacific.
+              Region shows as a micro-label on each card so columns always align. */}
           {indices.length > 0 && (() => {
-            const groups: Record<RegionGroup, MarketItem[]> = {
-              US: [], Americas: [], Europe: [], AsiaPacific: []
-            };
-            indices.forEach(item => {
-              const g = INDEX_LABELS[item.symbol]?.group ?? "US";
-              groups[g].push(item);
+            const ORDER: RegionGroup[] = ["US", "Americas", "Europe", "AsiaPacific"];
+            const sorted = [...indices].sort((a, b) => {
+              const ga = INDEX_LABELS[a.symbol]?.group ?? "US";
+              const gb = INDEX_LABELS[b.symbol]?.group ?? "US";
+              return ORDER.indexOf(ga) - ORDER.indexOf(gb);
             });
             return (
-              <div className="space-y-4">
-                {(Object.keys(groups) as RegionGroup[]).map(group => {
-                  const items = groups[group];
-                  if (!items.length) return null;
-                  return (
-                    <div key={group}>
-                      <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-2">
-                        {GROUP_LABELS[group]}
-                      </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {items.map(item => <IndexCard key={item.symbol} item={item} />)}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {sorted.map(item => <IndexCard key={item.symbol} item={item} />)}
               </div>
             );
           })()}
@@ -289,11 +259,8 @@ export default function MarketOverview() {
           {/* Sector performance bar chart */}
           {overview?.sectors && overview.sectors.length > 0 && (
             <div className="rounded-xl bg-card border border-border/50 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                  Sector Performance — S&P 500 (Today)
-                </h3>
-                <span className="text-xs text-muted-foreground">Ranked by daily return</span>
+              <div className="mb-4">
+                <SectionHeader icon={BarChart2} title="Sector Performance" meta={<span>S&P 500 · today</span>} />
               </div>
               <div style={{ height: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -334,76 +301,6 @@ export default function MarketOverview() {
             </div>
           )}
 
-          {/* Top Movers — gainers + losers */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Gainers */}
-            <div className="rounded-xl bg-card border border-border/50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-400" />
-                <h3 className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>Top Gainers</h3>
-                <span className="text-xs text-muted-foreground ml-auto">NYSE &amp; NASDAQ</span>
-              </div>
-              {mLoading ? (
-                <div className="p-4 space-y-2">
-                  {[1,2,3,4].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
-                </div>
-              ) : (
-                <div className="divide-y divide-border/20">
-                  {(movers?.gainers ?? []).length === 0 ? (
-                    <p className="px-4 py-6 text-xs text-muted-foreground text-center">No data available</p>
-                  ) : (movers?.gainers ?? []).map(m => (
-                    <div key={m.ticker} className="px-4 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-sm text-foreground w-14 shrink-0">{m.ticker}</span>
-                        <div>
-                          <p className="text-xs text-muted-foreground truncate max-w-[140px]">{m.name}</p>
-                          {m.marketCap && <p className="text-xs text-muted-foreground/60">{fmtCap(m.marketCap)}</p>}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-mono font-semibold tabular-nums text-foreground">${fmtPrice(m.price)}</p>
-                        <p className="text-xs font-bold tabular-nums text-green-400">{fmtPct(m.changePct)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Losers */}
-            <div className="rounded-xl bg-card border border-border/50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-red-400" />
-                <h3 className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>Top Losers</h3>
-                <span className="text-xs text-muted-foreground ml-auto">NYSE &amp; NASDAQ</span>
-              </div>
-              {mLoading ? (
-                <div className="p-4 space-y-2">
-                  {[1,2,3,4].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
-                </div>
-              ) : (
-                <div className="divide-y divide-border/20">
-                  {(movers?.losers ?? []).length === 0 ? (
-                    <p className="px-4 py-6 text-xs text-muted-foreground text-center">No data available</p>
-                  ) : (movers?.losers ?? []).map(m => (
-                    <div key={m.ticker} className="px-4 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-sm text-foreground w-14 shrink-0">{m.ticker}</span>
-                        <div>
-                          <p className="text-xs text-muted-foreground truncate max-w-[140px]">{m.name}</p>
-                          {m.marketCap && <p className="text-xs text-muted-foreground/60">{fmtCap(m.marketCap)}</p>}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-mono font-semibold tabular-nums text-foreground">${fmtPrice(m.price)}</p>
-                        <p className="text-xs font-bold tabular-nums text-red-400">{fmtPct(m.changePct)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </>
       )}
     </div>

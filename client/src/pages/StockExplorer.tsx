@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -145,7 +145,7 @@ function StockRow({
             <span className="text-xs text-muted-foreground/60 hidden lg:block truncate max-w-[100px]">{stock.sector}</span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{stock.name}</p>
+        <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5" title={stock.name}>{stock.name}</p>
       </div>
 
       {/* Price */}
@@ -194,6 +194,13 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
   const [market, setMarket] = useState("nasdaq");
   const [sort, setSort] = useState("marketCap");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
+
+  // Any filter change returns the table to the first page
+  useEffect(() => {
+    setPage(0);
+  }, [market, sort, search]);
 
   const { data, isLoading } = useQuery<ExplorerData>({
     queryKey: ["/api/explorer", market, sort],
@@ -228,6 +235,9 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
     !search || s.ticker.toLowerCase().includes(search.toLowerCase()) ||
     s.name.toLowerCase().includes(search.toLowerCase())
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const paged = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   // Summary stats
   const stocks = data?.stocks ?? [];
@@ -258,9 +268,9 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
             key={m.id}
             data-testid={`market-${m.id}`}
             onClick={() => setMarket(m.id)}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
               market === m.id
-                ? "bg-card text-primary shadow-sm"
+                ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -271,15 +281,15 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
 
       {/* Summary stats */}
       {!isLoading && stocks.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl bg-card border border-border/50 grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/30 overflow-hidden">
           {[
             { label: "Stocks Listed", value: stocks.length, color: "text-primary" },
             { label: "Advancing", value: gainers, color: "text-green-400" },
             { label: "Declining", value: losers, color: "text-red-400" },
             { label: "High Volatility", value: highVol, color: "text-yellow-400" },
           ].map(s => (
-            <div key={s.label} className="rounded-xl bg-card border border-border/50 px-4 py-3">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+            <div key={s.label} className="px-4 py-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{s.label}</p>
               <p className={`text-2xl font-bold tabular-nums mt-0.5 ${s.color}`} style={{ fontFamily: "var(--font-display)" }}>
                 {s.value}
               </p>
@@ -331,9 +341,10 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
 
       {/* Table */}
       <div className="rounded-xl bg-card border border-border/50 overflow-hidden">
-        {/* Column headers */}
+        <div className="max-h-[62vh] overflow-y-auto overscroll-contain">
+        {/* Column headers — sticky */}
         <div
-          className="grid items-center gap-3 px-4 py-2.5 border-b border-border/50 bg-secondary/30"
+          className="grid items-center gap-3 px-4 py-2.5 border-b border-border/50 bg-secondary/95 backdrop-blur-sm sticky top-0 z-[1]"
           style={{ gridTemplateColumns: "2rem 1fr 5rem 5rem 6rem 5rem 8rem 7rem 2rem" }}
         >
           {["#", "Stock", "Price", "Change", "Mkt Cap", "Volume", "Volatility", "14D Chart", ""].map((h, i) => (
@@ -356,27 +367,46 @@ export default function StockExplorer({ onSelectTicker }: { onSelectTicker: (t: 
           </div>
         ) : (
           <div>
-            {filtered.map((stock, i) => (
+            {paged.map((stock, i) => (
               <StockRow
                 key={stock.ticker}
                 stock={stock}
-                rank={i + 1}
+                rank={safePage * PAGE_SIZE + i + 1}
                 spark={sparksData?.[stock.ticker] ?? []}
                 onSelect={handleSelect}
               />
             ))}
           </div>
         )}
+        </div>
 
-        {/* Footer */}
+        {/* Footer + pagination */}
         {!isLoading && filtered.length > 0 && (
-          <div className="px-4 py-3 border-t border-border/30 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-border/30 flex flex-wrap items-center gap-3 justify-between">
             <p className="text-xs text-muted-foreground">
-              Showing {filtered.length} stocks · Click any row to analyze in Dashboard
+              Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} · Avg market cap {fmtCap(avgCap)}
             </p>
-            <p className="text-xs text-muted-foreground">
-              Avg market cap: {fmtCap(avgCap)} · Updates every 2 min
-            </p>
+            <div className="flex items-center gap-2">
+              <button
+                data-testid="button-prev-page"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-border/50 text-muted-foreground hover:text-foreground transition-all disabled:opacity-30 disabled:pointer-events-none"
+              >
+                Prev
+              </button>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Page {safePage + 1} / {totalPages}
+              </span>
+              <button
+                data-testid="button-next-page"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={safePage >= totalPages - 1}
+                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-border/50 text-muted-foreground hover:text-foreground transition-all disabled:opacity-30 disabled:pointer-events-none"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

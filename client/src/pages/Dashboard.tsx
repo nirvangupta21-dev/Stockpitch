@@ -56,10 +56,19 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
   // ── Landing state: no stock selected yet ──────────────────────────────────
   if (!ticker) {
     return (
-      <>
+      <div className="space-y-8">
+        {/* Page header — one clear anchor for the page */}
+        <div>
+          <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
+            Markets at a Glance
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Click any stock for full analysis — price history, investment simulator, and fair value models.
+          </p>
+        </div>
         <TopMoversLanding onSelectTicker={onTickerChange} />
         <MarketOverview />
-      </>
+      </div>
     );
   }
 

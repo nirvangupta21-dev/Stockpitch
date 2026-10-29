@@ -1,13 +1,15 @@
 /**
- * TopMoversLanding — shown on Dashboard before any stock is searched.
- * Fetches today's top 10 gainers and renders them as clickable cards
- * with a mini sparkline, price, and gain%.
+ * TopMoversLanding — the single "Top Movers" section of the Dashboard.
+ * One segmented control (Gainers / Losers) + one grid of clickable cards
+ * with a mini sparkline, price, and change%. No duplicate presentations.
  */
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { TrendingUp, ArrowUpRight, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line } from "recharts";
+import SectionHeader from "./SectionHeader";
 
 interface Mover {
   ticker: string;
@@ -18,6 +20,8 @@ interface Mover {
 }
 
 interface SparkData { spark: number[] }
+
+type Side = "gainers" | "losers";
 
 // ── Individual card ──────────────────────────────────────────────────────────
 function MoverCard({ mover, onSelect }: { mover: Mover; onSelect: () => void }) {
@@ -58,9 +62,9 @@ function MoverCard({ mover, onSelect }: { mover: Mover; onSelect: () => void }) 
               {isGain ? "+" : ""}{mover.changePct.toFixed(2)}%
             </span>
           </div>
-          <p className="text-xs text-muted-foreground truncate mt-0.5 max-w-[140px]">{mover.name}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">{mover.name}</p>
         </div>
-        <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+        {isGain ? <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />}
       </div>
 
       {/* Sparkline */}
@@ -97,48 +101,48 @@ function MoverCard({ mover, onSelect }: { mover: Mover; onSelect: () => void }) 
 interface Props { onSelectTicker: (ticker: string) => void; }
 
 export default function TopMoversLanding({ onSelectTicker }: Props) {
-  const { data, isLoading } = useQuery<{ gainers: Mover[] }>({
+  const [side, setSide] = useState<Side>("gainers");
+
+  const { data, isLoading } = useQuery<{ gainers: Mover[]; losers?: Mover[] }>({
     queryKey: ["/api/market/movers"],
     queryFn: () => apiRequest("GET", "/api/market/movers").then(r => r.json()),
     staleTime: 120000,
     retry: 2,
   });
 
-  const gainers = (data?.gainers ?? []).slice(0, 14);
+  const movers = (side === "gainers" ? data?.gainers : data?.losers) ?? [];
+  const list = movers.slice(0, 14);
 
   return (
-    <div className="space-y-6">
-
-      {/* Hero header */}
-      <div className="rounded-xl bg-card border border-border/50 px-6 py-8 text-center relative overflow-hidden">
-        {/* Background grid */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        <div className="relative">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <TrendingUp className="w-5 h-5 text-green-400" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Top Movers</span>
+    <section className="space-y-4">
+      <SectionHeader
+        icon={side === "gainers" ? TrendingUp : TrendingDown}
+        title="Top Movers"
+        meta={
+          <div className="flex gap-0.5 bg-muted rounded-full p-1" role="tablist" aria-label="Mover direction">
+            {(["gainers", "losers"] as Side[]).map(s => (
+              <button
+                key={s}
+                role="tab"
+                aria-selected={side === s}
+                data-testid={`movers-${s}`}
+                onClick={() => setSide(s)}
+                className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all ${
+                  side === s
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
           </div>
-          <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: "var(--font-display)" }}>
-            Markets at a Glance
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Click any stock to open a full analysis — price history, investment simulator, and fair value models.
-          </p>
-          <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground/60">
-            <Search className="w-3.5 h-3.5" />
-            <span>Or search any NYSE / NASDAQ stock in the top bar</span>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Grid of mover cards */}
+      {/* Grid of mover cards — single presentation */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           {Array.from({ length: 14 }).map((_, i) => (
             <div key={i} className="rounded-xl bg-card border border-border/50 p-4 space-y-3 animate-pulse">
               <div className="h-4 bg-secondary rounded w-16" />
@@ -147,13 +151,13 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
             </div>
           ))}
         </div>
-      ) : gainers.length === 0 ? (
+      ) : list.length === 0 ? (
         <div className="rounded-xl bg-card border border-border/50 p-10 text-center text-muted-foreground text-sm">
           Market data unavailable — try searching a specific ticker above.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          {gainers.map(m => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          {list.map(m => (
             <MoverCard
               key={m.ticker}
               mover={m}
@@ -162,9 +166,6 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
           ))}
         </div>
       )}
-
-      {/* Market overview still shown below */}
-      <div className="border-t border-border/30 pt-2" />
-    </div>
+    </section>
   );
 }
