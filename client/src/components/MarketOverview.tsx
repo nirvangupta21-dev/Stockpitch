@@ -203,9 +203,14 @@ export default function MarketOverview() {
       .filter(i => (seen.has(i.symbol) ? false : (seen.add(i.symbol), true)));
   }, [overview?.indices]);
 
-  const hero = US_HERO.map(sym => indices.find(i => i.symbol === sym)).filter(Boolean) as MarketItem[];
-  const heroSyms = new Set(US_HERO);
-  const others = indices.filter(i => !heroSyms.has(i.symbol));
+  // The API sometimes returns index symbols URL-encoded and sometimes already
+  // decoded (or as the plain name) — match on symbol OR label so the hero
+  // row never silently drops an index.
+  const heroMatch = (i: MarketItem, sym: string) =>
+    i.symbol === sym || i.name === INDEX_LABELS[sym]?.label || i.symbol === INDEX_LABELS[sym]?.label;
+
+  const hero = US_HERO.map(sym => indices.find(i => heroMatch(i, sym))).filter(Boolean) as MarketItem[];
+  const others = indices.filter(i => !US_HERO.some(sym => heroMatch(i, sym)));
 
   return (
     <section className="space-y-5" data-testid="market-overview">
