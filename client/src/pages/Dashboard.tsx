@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import PriceChart from "@/components/PriceChart";
 import InvestmentCalculator from "@/components/InvestmentCalculator";
 import MetricsBar from "@/components/MetricsBar";
-import MarketOverview from "@/components/MarketOverview";
+import MarketOverview, { SectorPerformance3D } from "@/components/MarketOverview";
 import TopMoversLanding from "@/components/TopMoversLanding";
 
 export interface QuoteData {
@@ -66,8 +66,16 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
             Click any stock for full analysis — price history, investment simulator, and fair value models.
           </p>
         </div>
-        <TopMoversLanding onSelectTicker={onTickerChange} />
         <MarketOverview />
+        {/* Bento row: movers panel + 3D sector performance */}
+        <div className="grid lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-7">
+            <TopMoversLanding onSelectTicker={onTickerChange} />
+          </div>
+          <div className="lg:col-span-5">
+            <SectorPerformance3D />
+          </div>
+        </div>
       </div>
     );
   }

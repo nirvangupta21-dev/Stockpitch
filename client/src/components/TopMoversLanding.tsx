@@ -45,7 +45,7 @@ function MoverCard({ mover, onSelect }: { mover: Mover; onSelect: () => void }) 
   return (
     <button
       onClick={onSelect}
-      className="group relative rounded-xl bg-card border border-border/50 p-4 text-left hover:border-primary/40 hover:bg-card/80 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 overflow-hidden"
+      className="group relative rounded-2xl bg-card border border-border/50 p-4 text-left hover:border-primary/40 overflow-hidden tilt"
       data-testid={`mover-card-${mover.ticker}`}
     >
       {/* Subtle top accent line on hover */}
@@ -62,7 +62,7 @@ function MoverCard({ mover, onSelect }: { mover: Mover; onSelect: () => void }) 
               {isGain ? "+" : ""}{mover.changePct.toFixed(2)}%
             </span>
           </div>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">{mover.name}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5" title={mover.name}>{mover.name}</p>
         </div>
         {isGain ? <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />}
       </div>
@@ -85,12 +85,12 @@ function MoverCard({ mover, onSelect }: { mover: Mover; onSelect: () => void }) 
       )}
 
       {/* Price + market cap */}
-      <div className="flex items-end justify-between">
+      <div className="flex items-baseline justify-between gap-2">
         <p className="text-lg font-bold font-mono tabular-nums text-foreground">
           ${mover.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
         {mover.marketCap && (
-          <p className="text-xs text-muted-foreground/60">{fmtMktCap(mover.marketCap)}</p>
+          <p className="text-xs text-muted-foreground/60 shrink-0">{fmtMktCap(mover.marketCap)}</p>
         )}
       </div>
     </button>
@@ -142,9 +142,9 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
 
       {/* Grid of mover cards — single presentation */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-card border border-border/50 p-4 space-y-3 animate-pulse">
+            <div key={i} className="rounded-2xl bg-card border border-border/50 p-4 space-y-3 animate-pulse">
               <div className="h-4 bg-secondary rounded w-16" />
               <div className="h-10 bg-secondary rounded" />
               <div className="h-5 bg-secondary rounded w-24" />
@@ -152,11 +152,11 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
           ))}
         </div>
       ) : list.length === 0 ? (
-        <div className="rounded-xl bg-card border border-border/50 p-10 text-center text-muted-foreground text-sm">
+        <div className="rounded-2xl bg-card border border-border/50 p-10 text-center text-muted-foreground text-sm">
           Market data unavailable — try searching a specific ticker above.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {list.map(m => (
             <MoverCard
               key={m.ticker}

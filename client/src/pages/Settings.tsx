@@ -1257,18 +1257,19 @@ export default function Settings() {
         <SettingRow label="Accent Color" description="Primary highlight color throughout the app">
           <div className="flex items-center gap-3">
             {([
-              { key: "lime",   color: "hsl(81,92%,60%)"  },
-              { key: "teal",   color: "hsl(185,80%,50%)"  },
-              { key: "blue",   color: "hsl(217,91%,60%)"  },
-              { key: "green",  color: "hsl(142,71%,45%)"  },
-              { key: "purple", color: "hsl(265,70%,60%)"  },
-              { key: "orange", color: "hsl(30,90%,55%)"   },
+              { key: "iris",    color: "hsl(248,80%,68%)" },
+              { key: "cyan",    color: "hsl(190,95%,55%)" },
+              { key: "violet",  color: "hsl(258,85%,66%)" },
+              { key: "emerald", color: "hsl(152,60%,45%)" },
+              { key: "amber",   color: "hsl(40,95%,58%)"  },
+              { key: "rose",    color: "hsl(330,85%,65%)" },
             ] as const).map(({ key, color }) => (
               <button
                 key={key}
                 title={key.charAt(0).toUpperCase() + key.slice(1)}
+                aria-label={`Accent color ${key}`}
                 onClick={() => update({ accentColor: key })}
-                className="w-7 h-7 rounded-full transition-all focus:outline-none"
+                className="w-7 h-7 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 style={{
                   backgroundColor: color,
                   boxShadow: settings.accentColor === key

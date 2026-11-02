@@ -1,269 +1,110 @@
+import { useEffect, useState } from "react";
+
 /**
- * IntroScreen — cinematic entry gate for Veridian
- *
- * Sequence:
- *   0.0s  — black, grid fades in
- *   0.6s  — "VERIDIAN" types in letter by letter
- *   1.8s  — subtitle fades up
- *   2.8s  — "Welcome, Investor." fades in
- *   3.8s  — enter button pulses in
- *   on click — everything fades to black → onEnter fires
+ * IntroScreen — full-screen glass hero shown on first visit.
+ * Ambient gradient orbs + a centered glass card with the Veridian
+ * wordmark, an animated tagline, and a gradient enter button.
  */
 
-import { useEffect, useState, useRef } from "react";
+const TAGLINES = [
+  "See any stock clearly.",
+  "Fair value, modeled in seconds.",
+  "Your research, organized.",
+];
+const TYPE_SPEED = 34;
+const ERASE_SPEED = 22;
+const HOLD_MS = 1600;
 
-interface Props { onEnter: () => void; }
+export default function IntroScreen({ onEnter }: { onEnter: () => void }) {
+  const [text, setText] = useState("");
+  const [phase, setPhase] = useState<"typing" | "holding" | "erasing">("typing");
+  const [idx, setIdx] = useState(0);
 
-const BRAND   = "VERIDIAN";
-const TAGLINE = "Investment Research Platform";
-const WELCOME = "Welcome, Investor.";
-
-export default function IntroScreen({ onEnter }: Props) {
-  const [phase, setPhase]         = useState(0); // 0=blank 1=grid 2=typing 3=sub 4=welcome 5=btn 6=exiting
-  const [typed, setTyped]         = useState("");
-  const [exiting, setExiting]     = useState(false);
-  const typingRef                 = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Phase timer cascade
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 100);   // grid in
-    const t2 = setTimeout(() => setPhase(2), 700);   // start typing
-    const t3 = setTimeout(() => setPhase(3), 2000);  // subtitle
-    const t4 = setTimeout(() => setPhase(4), 2900);  // welcome
-    const t5 = setTimeout(() => setPhase(5), 3900);  // button
-    return () => [t1,t2,t3,t4,t5].forEach(clearTimeout);
-  }, []);
-
-  // Typewriter
-  useEffect(() => {
-    if (phase !== 2) return;
-    let i = 0;
-    typingRef.current = setInterval(() => {
-      i++;
-      setTyped(BRAND.slice(0, i));
-      if (i >= BRAND.length && typingRef.current) {
-        clearInterval(typingRef.current);
+    let t: ReturnType<typeof setTimeout>;
+    if (phase === "typing") {
+      const target = TAGLINES[idx];
+      if (text.length < target.length) {
+        t = setTimeout(() => setText(target.slice(0, text.length + 1)), TYPE_SPEED);
+      } else {
+        setPhase("holding");
       }
-    }, 90);
-    return () => { if (typingRef.current) clearInterval(typingRef.current); };
-  }, [phase]);
+    } else if (phase === "holding") {
+      t = setTimeout(() => setPhase("erasing"), HOLD_MS);
+    } else {
+      if (text.length > 0) {
+        t = setTimeout(() => setText(text.slice(0, -1)), ERASE_SPEED);
+      } else {
+        setIdx(i => (i + 1) % TAGLINES.length);
+        setPhase("typing");
+      }
+    }
+    return () => clearTimeout(t);
+  }, [phase, text, idx]);
 
-  const handleEnter = () => {
-    setExiting(true);
-    setTimeout(onEnter, 900);
-  };
+  // Enter on Escape/Enter key
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === "Escape") onEnter();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onEnter]);
 
   return (
     <div
-      className="intro-root"
-      style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "#0b0e0f",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        overflow: "hidden",
-        opacity: exiting ? 0 : 1,
-        transition: exiting ? "opacity 0.85s ease" : "none",
-      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4 overflow-hidden"
+      style={{ background: "hsl(235 32% 7%)" }}
+      data-testid="intro-screen"
     >
-      {/* Animated grid */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        opacity: phase >= 1 ? 0.06 : 0,
-        transition: "opacity 1.2s ease",
-        backgroundImage: `
-          linear-gradient(rgba(184,247,72,0.55) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(184,247,72,0.55) 1px, transparent 1px)
-        `,
-        backgroundSize: "60px 60px",
-      }} />
+      {/* Ambient orbs */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(40rem 40rem at 20% 0%, hsl(248 85% 62% / 0.35), transparent 60%)," +
+            "radial-gradient(34rem 34rem at 85% 15%, hsl(195 90% 55% / 0.25), transparent 60%)," +
+            "radial-gradient(38rem 38rem at 70% 95%, hsl(258 85% 64% / 0.28), transparent 60%)," +
+            "radial-gradient(28rem 28rem at 10% 90%, hsl(330 85% 62% / 0.18), transparent 60%)",
+        }}
+      />
 
-      {/* Radial glow behind logo */}
-      <div style={{
-        position: "absolute",
-        width: 600, height: 600,
-        borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(184,247,72,0.06) 0%, transparent 70%)",
-        pointerEvents: "none",
-        opacity: phase >= 2 ? 1 : 0,
-        transition: "opacity 1.5s ease",
-      }} />
+      {/* Glass card */}
+      <div className="glass-panel relative w-full max-w-md px-8 py-12 text-center card-lift">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          Investment Research Platform
+        </p>
 
-      {/* Corner decorators */}
-      {[
-        { top: 24, left: 24 },
-        { top: 24, right: 24 },
-        { bottom: 24, left: 24 },
-        { bottom: 24, right: 24 },
-      ].map((style, i) => (
-        <div key={i} style={{
-          position: "absolute", ...style,
-          width: 20, height: 20,
-          borderTop: i < 2 ? "1px solid rgba(184,247,72,0.22)" : "none",
-          borderBottom: i >= 2 ? "1px solid rgba(184,247,72,0.22)" : "none",
-          borderLeft: i % 2 === 0 ? "1px solid rgba(184,247,72,0.22)" : "none",
-          borderRight: i % 2 === 1 ? "1px solid rgba(184,247,72,0.22)" : "none",
-          opacity: phase >= 1 ? 1 : 0,
-          transition: `opacity 0.6s ease ${i * 0.1}s`,
-        }} />
-      ))}
+        <h1
+          className="mt-4 text-5xl font-bold tracking-tight text-gradient"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          Veridian
+        </h1>
 
-      {/* Top scan line */}
-      <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, height: 1,
-        background: "linear-gradient(90deg, transparent, rgba(184,247,72,0.4), transparent)",
-        opacity: phase >= 1 ? 1 : 0,
-        transition: "opacity 0.8s ease",
-        animation: phase >= 1 ? "scan 4s linear infinite" : "none",
-      }} />
-
-      {/* Center content */}
-      <div style={{ textAlign: "center", position: "relative" }}>
-
-        {/* Veridian wordmark */}
-        <div style={{
-          fontFamily: "'Silkscreen', 'Space Mono', monospace",
-          fontSize: "clamp(3rem, 10vw, 6.5rem)",
-          fontWeight: 800,
-          letterSpacing: "0.25em",
-          color: "#b8f748",
-          lineHeight: 1,
-          minHeight: "1.1em",
-          fontVariantNumeric: "tabular-nums",
-        }}>
-          {typed}
-          {/* blinking cursor */}
-          {phase === 2 && typed.length < BRAND.length && (
-            <span style={{
-              display: "inline-block", width: "0.08em", height: "0.85em",
-              background: "#b8f748", marginLeft: 4,
-              verticalAlign: "middle",
-              animation: "blink 0.7s step-end infinite",
-            }} />
-          )}
+        {/* Animated tagline */}
+        <div className="h-7 mt-4 flex items-center justify-center">
+          <p className="text-sm text-muted-foreground">
+            {text}
+            <span className="inline-block w-[2px] h-4 ml-0.5 bg-primary animate-pulse align-middle" />
+          </p>
         </div>
 
-        {/* Thin rule */}
-        <div style={{
-          width: phase >= 3 ? "100%" : "0%",
-          height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(184,247,72,0.4), transparent)",
-          margin: "18px auto",
-          transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
-        }} />
+        <button
+          onClick={onEnter}
+          data-testid="button-enter"
+          className="mt-8 px-8 py-3 rounded-full text-sm font-semibold text-white accent-gradient shadow-lg shadow-primary/30 transition-all duration-200 hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/40 active:scale-[0.98]"
+        >
+          Enter Platform
+        </button>
 
-        {/* Tagline */}
-        <div style={{
-          fontFamily: "'Space Mono', monospace",
-          fontSize: "clamp(0.65rem, 2vw, 0.8rem)",
-          fontWeight: 500,
-          letterSpacing: "0.35em",
-          color: "rgba(150,163,167,0.9)",
-          textTransform: "uppercase",
-          opacity: phase >= 3 ? 1 : 0,
-          transform: phase >= 3 ? "translateY(0)" : "translateY(8px)",
-          transition: "opacity 0.7s ease, transform 0.7s ease",
-        }}>
-          {TAGLINE}
-        </div>
-
-        {/* Welcome */}
-        <div style={{
-          marginTop: 48,
-          fontFamily: "'Space Mono', monospace",
-          fontSize: "clamp(1rem, 3vw, 1.4rem)",
-          fontWeight: 400,
-          letterSpacing: "0.05em",
-          color: "#b79ff7",
-          opacity: phase >= 4 ? 1 : 0,
-          transform: phase >= 4 ? "translateY(0)" : "translateY(12px)",
-          transition: "opacity 0.8s ease, transform 0.8s ease",
-        }}>
-          {WELCOME}
-        </div>
-
-        {/* Enter button */}
-        <div style={{
-          marginTop: 40,
-          opacity: phase >= 5 ? 1 : 0,
-          transform: phase >= 5 ? "translateY(0) scale(1)" : "translateY(16px) scale(0.95)",
-          transition: "opacity 0.7s ease, transform 0.7s ease",
-        }}>
-          <button
-            onClick={handleEnter}
-            data-testid="button-enter"
-            style={{
-              fontFamily: "'Space Mono', monospace",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              color: "#0b0e0f",
-              background: "#b8f748",
-              border: "none",
-              borderRadius: 9999,
-              padding: "12px 36px",
-              cursor: "pointer",
-              transition: "background 0.2s, transform 0.2s, box-shadow 0.2s",
-              boxShadow: "0 0 30px rgba(184,247,72,0.18)",
-            }}
-            onMouseEnter={e => {
-              (e.target as HTMLElement).style.background = "#c8ff5a";
-              (e.target as HTMLElement).style.boxShadow = "0 0 50px rgba(184,247,72,0.3)";
-              (e.target as HTMLElement).style.transform = "scale(1.03)";
-            }}
-            onMouseLeave={e => {
-              (e.target as HTMLElement).style.background = "#b8f748";
-              (e.target as HTMLElement).style.boxShadow = "0 0 30px rgba(184,247,72,0.18)";
-              (e.target as HTMLElement).style.transform = "scale(1)";
-            }}
-          >
-            Open Research Platform
-          </button>
-        </div>
-
-        {/* Version tag */}
-        <div style={{
-          marginTop: 20,
-          fontSize: "0.6rem",
-          letterSpacing: "0.2em",
-          color: "rgba(184,247,72,0.22)",
-          opacity: phase >= 5 ? 1 : 0,
-          transition: "opacity 1s ease 0.3s",
-        }}>
-          v2.0 · QUANTITATIVE EDITION
-        </div>
+        <p className="mt-6 text-[10px] text-muted-foreground/60">
+          Live market data · Fair value models · Portfolio tools
+        </p>
       </div>
 
-      {/* Bottom status bar */}
-      <div style={{
-        position: "absolute", bottom: 24, left: 0, right: 0,
-        display: "flex", justifyContent: "center",
-        gap: 32,
-        opacity: phase >= 5 ? 0.25 : 0,
-        transition: "opacity 1s ease",
-        fontSize: "0.55rem",
-        letterSpacing: "0.2em",
-        color: "rgba(255,255,255,0.6)",
-        textTransform: "uppercase",
-      }}>
-        <span>NYSE · NASDAQ</span>
-        <span>·</span>
-        <span>Real-Time Data</span>
-        <span>·</span>
-        <span>Quantitative Models</span>
-      </div>
-
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0; }
-        }
-        @keyframes scan {
-          0%   { transform: translateY(0); }
-          100% { transform: translateY(100vh); }
-        }
-      `}</style>
+      {/* Version tag */}
+      <p className="absolute bottom-4 right-5 text-[10px] text-muted-foreground/40">v5.1</p>
     </div>
   );
 }

@@ -238,8 +238,9 @@ export default function PriceChart({ ticker, history, loading, range, onRangeCha
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,15%,18%)" vertical={false} />
               <XAxis
                 dataKey="date"
+                minTickGap={48}
                 tickFormatter={fmtDate}
-                tick={{ fontSize: 11, fill: "hsl(210,10%,50%)", fontFamily: "var(--font-mono)" }}
+                tick={{ fontSize: 11, fill: "hsl(200,8%,58%)", fontFamily: "var(--font-mono)" }}
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"

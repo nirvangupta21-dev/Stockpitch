@@ -50,7 +50,7 @@ export default function SearchBar({ onSelect, currentTicker }: Props) {
         <input
           data-testid="input-search"
           type="text"
-          placeholder={`Search stocks… (${currentTicker})`}
+          placeholder={currentTicker ? `Search stocks… (${currentTicker})` : "Search stocks…"}
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => query && setOpen(true)}
