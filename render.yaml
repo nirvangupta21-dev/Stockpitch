@@ -1,6 +1,6 @@
-# Render Blueprint — deploys Veridian with durable account storage.
+# Render Blueprint — Veridian (Veridian / PitchStock).
 #
-# First-time setup (one-time, ~5 minutes):
+# Durable accounts (one-time setup, ~5 minutes):
 #   1. Create a free Postgres database (Neon works well and has no expiry:
 #      https://neon.tech — create a project, copy the connection string).
 #   2. In Render: New > Blueprint > select this repo. When prompted for
@@ -10,16 +10,17 @@
 # After that, every push to main redeploys automatically and accounts persist.
 services:
   - type: web
-    name: veridian
-    runtime: node
+    name: pitchstock
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
-    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 5000
       - key: SESSION_SECRET
         generateValue: true
       - key: DATABASE_URL
         sync: false
+    healthCheckPath: /api/health
