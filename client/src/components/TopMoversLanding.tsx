@@ -19,6 +19,9 @@ interface Mover {
   marketCap?: number;
 }
 
+// { gainers: { NASDAQ: Mover[], NYSE: Mover[] }, losers: {...} }
+type GroupedMovers = Record<"gainers" | "losers", Record<string, Mover[]>>;
+
 interface SparkData { spark: number[] }
 
 type Side = "gainers" | "losers";
@@ -103,15 +106,15 @@ interface Props { onSelectTicker: (ticker: string) => void; }
 export default function TopMoversLanding({ onSelectTicker }: Props) {
   const [side, setSide] = useState<Side>("gainers");
 
-  const { data, isLoading } = useQuery<{ gainers: Mover[]; losers?: Mover[] }>({
+  const { data, isLoading } = useQuery<GroupedMovers>({
     queryKey: ["/api/market/movers"],
     queryFn: () => apiRequest("GET", "/api/market/movers").then(r => r.json()),
     staleTime: 120000,
     retry: 2,
   });
 
-  const movers = (side === "gainers" ? data?.gainers : data?.losers) ?? [];
-  const list = movers.slice(0, 14);
+  const groups = (side === "gainers" ? data?.gainers : data?.losers) ?? {};
+  const isEmpty = Object.values(groups).every(list => !list?.length);
 
   return (
     <section className="space-y-4">
@@ -140,29 +143,45 @@ export default function TopMoversLanding({ onSelectTicker }: Props) {
         }
       />
 
-      {/* Grid of mover cards — single presentation */}
+      {/* Top 5 movers per market */}
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="rounded-2xl bg-card border border-border/50 p-4 space-y-3 animate-pulse">
-              <div className="h-4 bg-secondary rounded w-16" />
-              <div className="h-10 bg-secondary rounded" />
-              <div className="h-5 bg-secondary rounded w-24" />
+        <div className="space-y-6">
+          {["NASDAQ", "NYSE"].map(market => (
+            <div key={market}>
+              <div className="skeleton h-4 w-20 rounded mb-2" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl bg-card border border-border/50 p-4 space-y-3 animate-pulse">
+                    <div className="h-4 bg-secondary rounded w-16" />
+                    <div className="h-10 bg-secondary rounded" />
+                    <div className="h-5 bg-secondary rounded w-24" />
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
-      ) : list.length === 0 ? (
+      ) : isEmpty ? (
         <div className="rounded-2xl bg-card border border-border/50 p-10 text-center text-muted-foreground text-sm">
           Market data unavailable — try searching a specific ticker above.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {list.map(m => (
-            <MoverCard
-              key={m.ticker}
-              mover={m}
-              onSelect={() => onSelectTicker(m.ticker)}
-            />
+        <div className="space-y-6">
+          {Object.entries(groups).map(([market, list]) => !list?.length ? null : (
+            <div key={market}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70 mb-2">
+                {market} · top {list.length}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {list.map(m => (
+                  <MoverCard
+                    key={m.ticker}
+                    mover={m}
+                    onSelect={() => onSelectTicker(m.ticker)}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

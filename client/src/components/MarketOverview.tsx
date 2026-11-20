@@ -30,37 +30,37 @@ function fmtPrice(n: number) {
 // Pretty names for index symbols
 type RegionGroup = "US" | "Americas" | "Europe" | "AsiaPacific";
 
-const INDEX_LABELS: Record<string, { label: string; ticker: string; flag: string; group: RegionGroup }> = {
+const INDEX_LABELS: Record<string, { label: string; ticker: string; group: RegionGroup }> = {
   // US
-  "^GSPC":    { label: "S&P 500",          ticker: "^GSPC",    flag: "🇺🇸", group: "US" },
-  "^IXIC":    { label: "NASDAQ",           ticker: "^IXIC",    flag: "🇺🇸", group: "US" },
-  "^DJI":     { label: "Dow Jones",        ticker: "^DJI",     flag: "🇺🇸", group: "US" },
-  "^NYC":     { label: "NYSE Comp.",       ticker: "^NYC",     flag: "🇺🇸", group: "US" },
-  "^RUT":     { label: "Russell 2000",     ticker: "^RUT",     flag: "🇺🇸", group: "US" },
+  "^GSPC":    { label: "S&P 500",          ticker: "^GSPC", group: "US" },
+  "^IXIC":    { label: "NASDAQ",           ticker: "^IXIC", group: "US" },
+  "^DJI":     { label: "Dow Jones",        ticker: "^DJI", group: "US" },
+  "^NYC":     { label: "NYSE Comp.",       ticker: "^NYC", group: "US" },
+  "^RUT":     { label: "Russell 2000",     ticker: "^RUT", group: "US" },
   // Americas
-  "^GSPTSE":  { label: "TSX Composite",    ticker: "^GSPTSE",  flag: "🇨🇦", group: "Americas" },
-  "^BVSP":    { label: "Bovespa",          ticker: "^BVSP",    flag: "🇧🇷", group: "Americas" },
-  "^MXX":     { label: "IPC Mexico",       ticker: "^MXX",     flag: "🇲🇽", group: "Americas" },
+  "^GSPTSE":  { label: "TSX Composite",    ticker: "^GSPTSE", group: "Americas" },
+  "^BVSP":    { label: "Bovespa",          ticker: "^BVSP", group: "Americas" },
+  "^MXX":     { label: "IPC Mexico",       ticker: "^MXX", group: "Americas" },
   // Europe
-  "^GDAXI":   { label: "DAX",              ticker: "^GDAXI",   flag: "🇩🇪", group: "Europe" },
-  "^FTSE":    { label: "FTSE 100",         ticker: "^FTSE",    flag: "🇬🇧", group: "Europe" },
-  "^FCHI":    { label: "CAC 40",           ticker: "^FCHI",    flag: "🇫🇷", group: "Europe" },
-  "^STOXX":   { label: "STOXX Europe 600", ticker: "^STOXX",   flag: "🇪🇺", group: "Europe" },
-  "^STOXX50E":{ label: "Euro STOXX 50",    ticker: "^STOXX50E",flag: "🇪🇺", group: "Europe" },
-  "^IBEX":    { label: "IBEX 35",          ticker: "^IBEX",    flag: "🇪🇸", group: "Europe" },
-  "FTSEMIB.MI":{ label: "FTSE MIB",       ticker: "FTSEMIB",  flag: "🇮🇹", group: "Europe" },
-  "^AEX":     { label: "AEX",              ticker: "^AEX",     flag: "🇳🇱", group: "Europe" },
-  "^SSMI":    { label: "SMI",              ticker: "^SSMI",   flag: "🇨🇭", group: "Europe" },
+  "^GDAXI":   { label: "DAX",              ticker: "^GDAXI", group: "Europe" },
+  "^FTSE":    { label: "FTSE 100",         ticker: "^FTSE", group: "Europe" },
+  "^FCHI":    { label: "CAC 40",           ticker: "^FCHI", group: "Europe" },
+  "^STOXX":   { label: "STOXX Europe 600", ticker: "^STOXX", group: "Europe" },
+  "^STOXX50E":{ label: "Euro STOXX 50",    ticker: "^STOXX50E", group: "Europe" },
+  "^IBEX":    { label: "IBEX 35",          ticker: "^IBEX", group: "Europe" },
+  "FTSEMIB.MI":{ label: "FTSE MIB",       ticker: "FTSEMIB", group: "Europe" },
+  "^AEX":     { label: "AEX",              ticker: "^AEX", group: "Europe" },
+  "^SSMI":    { label: "SMI",              ticker: "^SSMI", group: "Europe" },
   // Asia Pacific
-  "^N225":    { label: "Nikkei 225",      ticker: "^N225",    flag: "🇯🇵", group: "AsiaPacific" },
-  "^NSEI":    { label: "NIFTY 50",        ticker: "^NSEI",    flag: "🇮🇳", group: "AsiaPacific" },
-  "^BSESN":   { label: "BSE SENSEX",      ticker: "^BSESN",   flag: "🇮🇳", group: "AsiaPacific" },
-  "000001.SS":{ label: "Shanghai Composite",  ticker: "000001.SS",flag: "🇨🇳", group: "AsiaPacific" },
-  "^HSI":     { label: "Hang Seng",       ticker: "^HSI",     flag: "🇭🇰", group: "AsiaPacific" },
-  "^KS11":    { label: "KOSPI",           ticker: "^KS11",    flag: "🇰🇷", group: "AsiaPacific" },
-  "^TWII":    { label: "TAIEX",           ticker: "^TWII",    flag: "🇹🇼", group: "AsiaPacific" },
-  "^AXJO":    { label: "ASX 200",         ticker: "^AXJO",    flag: "🇦🇺", group: "AsiaPacific" },
-  "^STI":     { label: "Straits Times",   ticker: "^STI",     flag: "🇸🇬", group: "AsiaPacific" },
+  "^N225":    { label: "Nikkei 225",      ticker: "^N225", group: "AsiaPacific" },
+  "^NSEI":    { label: "NIFTY 50",        ticker: "^NSEI", group: "AsiaPacific" },
+  "^BSESN":   { label: "BSE SENSEX",      ticker: "^BSESN", group: "AsiaPacific" },
+  "000001.SS":{ label: "Shanghai Composite",  ticker: "000001.SS", group: "AsiaPacific" },
+  "^HSI":     { label: "Hang Seng",       ticker: "^HSI", group: "AsiaPacific" },
+  "^KS11":    { label: "KOSPI",           ticker: "^KS11", group: "AsiaPacific" },
+  "^TWII":    { label: "TAIEX",           ticker: "^TWII", group: "AsiaPacific" },
+  "^AXJO":    { label: "ASX 200",         ticker: "^AXJO", group: "AsiaPacific" },
+  "^STI":     { label: "Straits Times",   ticker: "^STI", group: "AsiaPacific" },
 };
 
 const GROUP_LABELS: Record<RegionGroup, string> = {
@@ -101,7 +101,7 @@ function Spark({ data, up, width = 64 }: { data: number[]; up: boolean; width?: 
 // ── Hero card for the four headline US indexes ───────────────────────────────
 function HeroIndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
-  const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, flag: "🌐", group: "US" as RegionGroup };
+  const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, group: "US" as RegionGroup };
   return (
     <div
       className={`rounded-2xl border p-5 bg-card card-lift flex flex-col gap-3 ${
@@ -111,7 +111,6 @@ function HeroIndexCard({ item }: { item: MarketItem }) {
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-base">{meta.flag}</span>
           <p className="text-sm font-semibold truncate min-w-0" style={{ fontFamily: "var(--font-display)" }}>{meta.label}</p>
         </div>
         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -133,7 +132,7 @@ function HeroIndexCard({ item }: { item: MarketItem }) {
 // Index card — region micro-label keeps one uniform grid sortable at a glance
 function IndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
-  const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, flag: "🌐", group: "US" as RegionGroup };
+  const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, group: "US" as RegionGroup };
   return (
     <div className={`rounded-2xl border p-4 bg-card card-lift flex flex-col gap-2 ${
       up ? "border-up/20 hover:border-up/40" : "border-down/20 hover:border-down/40"
@@ -141,10 +140,7 @@ function IndexCard({ item }: { item: MarketItem }) {
       <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{GROUP_LABELS[meta.group]}</p>
       <div className="flex items-start justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-sm">{meta.flag}</span>
-            <p className="text-xs text-muted-foreground font-semibold leading-tight">{meta.label}</p>
-          </div>
+          <p className="text-xs text-muted-foreground font-semibold leading-tight mb-0.5">{meta.label}</p>
           <p className="text-lg font-bold tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
             {fmtPrice(item.price)}
           </p>
@@ -168,10 +164,9 @@ function TickerTape({ indices }: { indices: MarketItem[] }) {
       <div className="flex items-center gap-8 ticker-tape whitespace-nowrap">
         {items.map((item, i) => {
           const up = item.changePct >= 0;
-          const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, flag: "🌐", group: "US" as RegionGroup };
+          const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, group: "US" as RegionGroup };
           return (
             <span key={i} className="flex items-center gap-2 text-xs shrink-0">
-              <span>{meta.flag}</span>
               <span className="font-semibold text-foreground">{meta.label}</span>
               <span className="font-mono text-muted-foreground/70 text-xs">{meta.ticker}</span>
               <span className="font-mono tabular-nums text-foreground/80">{fmtPrice(item.price)}</span>

@@ -5,6 +5,7 @@ import { db } from "./db";
 import { insertPortfolioSchema, insertWatchlistSchema, users } from "@shared/schema";
 import { getNews } from "./news";
 import { accountId, type AuthenticatedRequest } from "./auth";
+import { fetch as undiciFetch, Agent } from "undici";
 
 // Yahoo Finance API proxy
 async function fetchYahooQuote(ticker: string) {
@@ -251,7 +252,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       const ALLOWED = ["NASDAQ", "NYSE", "NMS", "NYQ", "NGM", "NCM"];
       const quotes = (data.quotes || [])
         .filter((q: any) =>
-          q.quoteType === "EQUITY" &&
+          (q.quoteType === "EQUITY" || q.quoteType === "ETF") &&
           ALLOWED.some(e => (q.exchange || "").toUpperCase().includes(e) || (q.exchDisp || "").toUpperCase().includes(e))
         )
         .slice(0, 6)
@@ -298,19 +299,23 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         } catch {}
       }
 
-      // Enforce NYSE / NASDAQ only
+      const instrumentType = meta.instrumentType || "";
+      const isFund = instrumentType === "ETF" || instrumentType === "MUTUALFUND";
+
+      // Enforce NYSE / NASDAQ (ETFs also trade on Arca/Cboe)
       const exchange = (meta.fullExchangeName || meta.exchangeName || "").toLowerCase();
-      const allowedExchanges = ["nasdaq", "nyse", "nasdaqgs", "nasdaqgm", "nasdaqcm", "nms", "nyq"];
-      const isAllowedExchange = allowedExchanges.some(e => exchange.includes(e));
-      if (!isAllowedExchange) {
+      const stockExchanges = ["nasdaq", "nyse", "nasdaqgs", "nasdaqgm", "nasdaqcm", "nms", "nyq"];
+      const fundExchanges = [...stockExchanges, "arca", "pcx", "nysearca", "cboe", "oeq", "bats"];
+      const allowed = isFund ? fundExchanges : stockExchanges;
+      if (!allowed.some(e => exchange.includes(e))) {
         return res.status(403).json({
           message: `${meta.symbol} is listed on ${meta.fullExchangeName || meta.exchangeName}, not NYSE or NASDAQ. This platform only supports NYSE and NASDAQ listed stocks.`,
         });
       }
 
-      // Enforce minimum $1B market cap threshold
+      // Enforce minimum $1B market cap threshold (funds exempt — cap is AUM, not meaningful here)
       const MIN_MARKET_CAP = 1_000_000_000;
-      if (marketCap !== null && marketCap < MIN_MARKET_CAP) {
+      if (!isFund && marketCap !== null && marketCap < MIN_MARKET_CAP) {
         return res.status(403).json({
           message: `${meta.symbol} has a market cap below $1B and does not meet the minimum threshold for this platform.`,
           marketCap,
@@ -319,6 +324,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
       const quote = {
         ticker: meta.symbol,
+        quoteType: instrumentType,
         name: meta.longName || meta.shortName || meta.symbol,
         price,
         previousClose: prevClose,
@@ -462,26 +468,37 @@ export async function registerRoutes(httpServer: Server, app: Express) {
   app.get("/api/market/movers", async (req, res) => {
     try {
       const [gainersRes, losersRes] = await Promise.all([
-        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=8", {
+        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=100", {
           headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
         }),
-        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_losers&count=8", {
+        fetch("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_losers&count=100", {
           headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
         }),
       ]);
 
+      // Map Yahoo exchange codes to market buckets
+      const MARKET: Record<string, string> = {
+        NMS: "NASDAQ", NGM: "NASDAQ", NCM: "NASDAQ",
+        NYQ: "NYSE", ASE: "NYSE",
+      };
+
+      // Top 5 movers per market (NASDAQ / NYSE)
       const parse = (data: any) => {
-        const quotes = data?.finance?.result?.[0]?.quotes || [];
-        return quotes
-          .filter((q: any) => q.exchange === "NMS" || q.exchange === "NYQ" || q.exchange === "NGM" || q.exchange === "NCM")
-          .slice(0, 6)
-          .map((q: any) => ({
+        const quotes: any[] = data?.finance?.result?.[0]?.quotes || [];
+        const byMarket: Record<string, any[]> = {};
+        for (const q of quotes) {
+          const market = MARKET[q.exchange];
+          if (!market) continue;
+          (byMarket[market] ??= []).push({
             ticker: q.symbol,
             name: q.shortName || q.longName || q.symbol,
             price: parseFloat((q.regularMarketPrice || 0).toFixed(2)),
             changePct: parseFloat((q.regularMarketChangePercent || 0).toFixed(2)),
             marketCap: q.marketCap || null,
-          }));
+          });
+        }
+        for (const m of Object.keys(byMarket)) byMarket[m] = byMarket[m].slice(0, 5);
+        return byMarket;
       };
 
       const gainersData = gainersRes.ok ? await gainersRes.json() : null;
@@ -491,6 +508,169 @@ export async function registerRoutes(httpServer: Server, app: Express) {
         gainers: gainersData ? parse(gainersData) : [],
         losers: losersData ? parse(losersData) : [],
       });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // finance.yahoo.com response headers exceed Node's default parser limit;
+  // use undici with a raised limit for the holdings page fetch.
+  const yahooAgent = new Agent({ maxHeaderSize: 65536 });
+
+  // ── ETF holdings — parsed from Yahoo's quote holdings page ────────────────
+  // Yahoo's REST holdings endpoints are deprecated; the quote page still
+  // embeds the fund's top holdings + position breakdown in its HTML.
+  const etfHoldingsCache = new Map<string, { ts: number; data: any }>();
+
+  app.get("/api/etf/holdings/:ticker", async (req, res) => {
+    try {
+      const sym = req.params.ticker.toUpperCase();
+      const cached = etfHoldingsCache.get(sym);
+      if (cached && Date.now() - cached.ts < 12 * 60 * 60 * 1000) {
+        return res.json(cached.data);
+      }
+
+      const r = await undiciFetch(`https://finance.yahoo.com/quote/${sym}/holdings/`, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          "Accept": "text/html",
+        },
+        dispatcher: yahooAgent,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!r.ok) return res.status(404).json({ message: "Holdings not available for this ticker" });
+      const html = await r.text();
+
+      // The page embeds a double-escaped JSON store; isolate the topHoldings
+      // region and unescape it before parsing.
+      // The data block is double-escaped, so anchor on a field that only
+      // exists in it (holdingName), then widen to include the position
+      // breakdown that precedes the holdings list.
+      const hp = html.indexOf("holdingName");
+      if (hp === -1) return res.status(404).json({ message: "No holdings data found (not a fund?)" });
+      const start = Math.max(0, hp - 800);
+      const j = html.indexOf("equityHoldings", hp);
+      const region = html.slice(start, (j > 0 ? j : hp + 8000) + 3000);
+      // The page embeds fund data as double-escaped JSON. Build the match
+      // patterns from explicit backslash sequences to avoid regex-escaping
+      // pitfalls, and match directly on the escaped text.
+      const BS = String.fromCharCode(92);      // one backslash
+      const BB = BS + BS;                      // two backslashes
+      const EQ = BB + '"';                     // escaped-quote sequence
+      const holdingRe = new RegExp(
+        EQ + 'symbol' + EQ + ':' + EQ + '([^' + BB + ']+?)' + EQ + ',' + EQ +
+        'holdingName' + EQ + ':' + EQ + '(.*?)' + EQ + ',' + EQ +
+        'holdingPercent' + EQ + ':{' + EQ + 'raw' + EQ + ':([0-9.eE+-]+)',
+        'g'
+      );
+      const holdings: { symbol: string; name: string; weight: number }[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = holdingRe.exec(region)) !== null) {
+        holdings.push({ symbol: m[1], name: m[2], weight: parseFloat(m[3]) * 100 });
+      }
+      if (!holdings.length) return res.status(404).json({ message: "No holdings data found" });
+
+      const posPattern = (key: string) =>
+        new RegExp(EQ + key + EQ + ':{' + EQ + 'raw' + EQ + ':([0-9.eE+-]+)');
+      const pos = (key: string) => {
+        const pm = region.match(posPattern(key));
+        return pm ? parseFloat(pm[1]) * 100 : null;
+      };
+      const positions = {
+        stocks: pos("stockPosition"),
+        bonds: pos("bondPosition"),
+        cash: pos("cashPosition"),
+      };
+
+      const data = { ticker: sym, holdings, positions };
+      etfHoldingsCache.set(sym, { ts: Date.now(), data });
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // ── Market odds — Polymarket public API (keyless) ─────────────────────────
+  // Market-implied probabilities for macro events relevant to investors.
+  const oddsCache = { ts: 0, data: null as any };
+  // Curated investor-relevant topics (query, display category)
+  const ODDS_QUERIES: [string, string][] = [
+    ["Fed rate hike", "Fed policy"],
+    ["Fed rate cut", "Fed policy"],
+    ["US recession", "Economy"],
+    ["S&P 500", "Equities"],
+    ["bitcoin", "Crypto"],
+    ["government shutdown", "US politics"],
+  ];
+
+  app.get("/api/market/odds", async (req, res) => {
+    try {
+      if (oddsCache.data && Date.now() - oddsCache.ts < 5 * 60 * 1000) {
+        return res.json(oddsCache.data);
+      }
+
+      const seen = new Set<string>();
+      const items: any[] = [];
+
+      for (const [q, category] of ODDS_QUERIES) {
+        try {
+          const r = await fetch(
+            `https://gamma-api.polymarket.com/public-search?q=${encodeURIComponent(q)}&limit_per_type=5&events_status=active`,
+            { headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" }, signal: AbortSignal.timeout(10000) }
+          );
+          if (!r.ok) continue;
+          const data = await r.json();
+          const events: any[] = data?.events ?? [];
+          // highest-volume active event for the query
+          const ev = events
+            .filter(e => e.active && !e.closed && e.markets?.length && (e.volume24hr ?? 0) > 1000)
+            .sort((a, b) => (b.volume24hr ?? 0) - (a.volume24hr ?? 0))[0];
+          if (!ev || seen.has(ev.id)) continue;
+          seen.add(ev.id);
+
+          // Pick the most-traded market whose prices are still live
+          // (skips resolved far-tail strikes like "11 rate cuts").
+          const sorted = [...ev.markets].sort((a: any, b: any) => (b.volume24hr ?? b.volume ?? 0) - (a.volume24hr ?? a.volume ?? 0));
+          let mkt: any = null;
+          let outcomes: string[] = [];
+          let prices: string[] = [];
+          for (const candidate of sorted) {
+            let o: string[] = [];
+            let pr: string[] = [];
+            try {
+              o = typeof candidate.outcomes === "string" ? JSON.parse(candidate.outcomes) : candidate.outcomes ?? [];
+              pr = typeof candidate.outcomePrices === "string" ? JSON.parse(candidate.outcomePrices) : candidate.outcomePrices ?? [];
+            } catch {}
+            if (!o.length || o.length !== pr.length) continue;
+            const top = Math.max(...pr.map(p => parseFloat(p || "0")));
+            if (top > 0.97 || top < 0.03) continue; // dead market
+            mkt = candidate;
+            outcomes = o;
+            prices = pr;
+            break;
+          }
+          if (!mkt) continue;
+
+          items.push({
+            category,
+            question: mkt.question || ev.title,
+            outcomes: outcomes.map((name: string, i: number) => ({
+              name,
+              prob: Math.round(parseFloat(prices[i] ?? "0") * 1000) / 10,
+            })),
+            volume24hr: Math.round(ev.volume24hr ?? 0),
+            endDate: ev.endDate,
+            url: `https://polymarket.com/event/${ev.slug}`,
+          });
+        } catch {}
+      }
+
+      const payload = { asOf: new Date().toISOString(), items };
+      if (items.length) {
+        oddsCache.ts = Date.now();
+        oddsCache.data = payload;
+      }
+      res.json(payload);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }

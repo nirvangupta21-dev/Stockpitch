@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { AlertTriangle,  TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { QuoteData } from "@/pages/Dashboard";
 
 interface Props {
@@ -45,7 +45,7 @@ export default function StockHeader({ quote, loading, error }: Props) {
           ? "bg-yellow-500/10 border-yellow-500/25 text-yellow-300"
           : "bg-destructive/10 border-destructive/20 text-destructive"
       }`}>
-        {isRestricted && <span className="text-lg leading-none mt-0.5">⚠️</span>}
+        {isRestricted && <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />}
         <div>
           {isCap && <><strong>Market cap too small.</strong> This platform only supports NYSE &amp; NASDAQ stocks with a market cap above $1B.</>}
           {isExchange && <><strong>Exchange not supported.</strong> This platform only supports stocks listed on NYSE or NASDAQ.</>}

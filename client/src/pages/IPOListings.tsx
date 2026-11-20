@@ -19,7 +19,6 @@ interface IPO {
 interface IPOData {
   exchange: string;
   label: string;
-  flag: string;
   upcoming: IPO[];
   recent: IPO[];
   lastUpdated: string;
@@ -28,16 +27,16 @@ interface IPOData {
 
 // ── Exchange tabs config ────────────────────────────────────────────────────
 const EXCHANGES = [
-  { id: "all",      label: "All Markets",      flag: "🌐" },
-  { id: "nasdaq",   label: "NASDAQ",            flag: "🇺🇸" },
-  { id: "nyse",     label: "NYSE",              flag: "🇺🇸" },
-  { id: "lse",      label: "LSE",               flag: "🇬🇧" },
-  { id: "tsx",      label: "TSX",               flag: "🇨🇦" },
-  { id: "asx",      label: "ASX",               flag: "🇦🇺" },
-  { id: "nse",      label: "NSE India",         flag: "🇮🇳" },
-  { id: "tse",      label: "TSE Japan",         flag: "🇯🇵" },
-  { id: "sse",      label: "SSE China",         flag: "🇨🇳" },
-  { id: "euronext", label: "Euronext",          flag: "🇪🇺" },
+  { id: "all",      label: "All Markets" },
+  { id: "nasdaq",   label: "NASDAQ" },
+  { id: "nyse",     label: "NYSE" },
+  { id: "lse",      label: "LSE" },
+  { id: "tsx",      label: "TSX" },
+  { id: "asx",      label: "ASX" },
+  { id: "nse",      label: "NSE India" },
+  { id: "tse",      label: "TSE Japan" },
+  { id: "sse",      label: "SSE China" },
+  { id: "euronext", label: "Euronext" },
 ];
 
 // ── Formatters ──────────────────────────────────────────────────────────────
@@ -287,7 +286,7 @@ export default function IPOListings() {
               }`}
               data-testid={`tab-ipo-${ex.id}`}
             >
-              <span>{ex.flag}</span>
+              <span> </span>
               <span>{ex.label}</span>
             </button>
           ))}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import MarketOdds from "@/components/MarketOdds";
 import {
   Globe, TrendingDown, TrendingUp, Minus,
   ChevronDown, ChevronUp, RefreshCw, Clock,
@@ -452,6 +453,9 @@ export default function News() {
           ))}
         </div>
       )}
+
+      {/* Prediction-market odds */}
+      <MarketOdds />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">

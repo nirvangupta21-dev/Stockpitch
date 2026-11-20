@@ -8,9 +8,11 @@ import InvestmentCalculator from "@/components/InvestmentCalculator";
 import MetricsBar from "@/components/MetricsBar";
 import MarketOverview, { SectorPerformance3D } from "@/components/MarketOverview";
 import TopMoversLanding from "@/components/TopMoversLanding";
+import EtfHoldings from "@/components/EtfHoldings";
 
 export interface QuoteData {
   ticker: string;
+  quoteType?: string;
   name: string;
   price: number;
   previousClose: number;
@@ -108,6 +110,10 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
         history={historyData?.history ?? []}
         companyName={quote?.name}
       />
+      {/* ETF holdings breakdown */}
+      {quote?.quoteType === "ETF" && (
+        <EtfHoldings ticker={ticker} onSelectTicker={onTickerChange} />
+      )}
       <div className="border-t border-border/30 pt-2" />
       <MarketOverview />
     </div>

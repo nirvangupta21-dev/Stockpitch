@@ -28,7 +28,7 @@ import {
   LineChart, Line, Area, AreaChart,
   ComposedChart,
 } from "recharts";
-import { Scale, TrendingUp, TrendingDown, Minus, RefreshCw, Info, ChevronDown, ChevronUp, Shield } from "lucide-react";
+import { Check, Scale, TrendingUp, TrendingDown, Minus, RefreshCw, Info, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -422,7 +422,7 @@ export default function FairValue({ ticker }: { ticker: string }) {
           {quote && <span className="text-sm text-muted-foreground truncate max-w-[200px]">{quote.name}</span>}
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-xs text-green-400 font-medium">Quantitative Models ✓</span>
+          <span className="text-xs text-green-400 font-medium inline-flex items-center gap-1"><Check className="w-3 h-3" />Quantitative Models</span>
           <button
             onClick={() => { refetchQ(); refetchH(); }}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"

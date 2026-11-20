@@ -31,11 +31,11 @@ function RenderMessage({ content }: { content: string }) {
     const line = lines[i];
 
     // Disclaimer line — special styling
-    if (line.includes("⚠️") && line.includes("research and informational")) {
+    if (line.includes("research and informational")) {
       elements.push(
         <div key={i} className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-yellow-500/8 border border-yellow-500/20 text-xs text-yellow-300/90 leading-relaxed">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-yellow-400" />
-          <span>{line.replace("⚠️ ", "")}</span>
+          <span>{line}</span>
         </div>
       );
       i++;
@@ -192,7 +192,7 @@ export default function AIAssistant({ ticker, quote }: Props) {
       setMessages(prev => prev.filter(m => m.id !== "loading").concat({
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `Something went wrong: ${e.message}\n\n⚠️ This is for research and informational purposes only. This does not constitute financial advice. Please conduct your own due diligence and consult a licensed financial advisor before making any investment decisions.`,
+        content: `Something went wrong: ${e.message}\n\nThis is for research and informational purposes only. This does not constitute financial advice. Please conduct your own due diligence and consult a licensed financial advisor before making any investment decisions.`,
         timestamp: new Date(),
       }));
     } finally {
