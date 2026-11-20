@@ -45,3 +45,11 @@ export const portfolio = sqliteTable("portfolio", {
 export const insertPortfolioSchema = createInsertSchema(portfolio);
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 export type PortfolioPosition = typeof portfolio.$inferSelect;
+
+// Server-side login sessions (kept in the main database so they survive
+// process restarts in both SQLite and Postgres mode).
+export const sessions = sqliteTable("sessions", {
+  sid: text("sid").primaryKey(),
+  sess: text("sess").notNull(),
+  expires: integer("expires").notNull(),
+});

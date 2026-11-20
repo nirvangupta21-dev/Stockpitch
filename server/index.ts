@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { restoreBackupIfNeeded } from "./storage";
 import { setupAuth } from "./auth";
+import { dbReady, usingPostgres } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,6 +24,43 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// ── Security hardening ──────────────────────────────────────────────────────
+// Baseline security headers on every response.
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Only send HSTS when we know we are behind TLS (Render terminates it for us).
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
+// CSRF defence: the SPA only ever talks to its own origin, so any
+// state-changing request carrying an Origin header must match the Host.
+// Blocks cross-site form posts even where sameSite=lax would not.
+app.use((req, res, next) => {
+  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE") {
+    const origin = req.headers.origin;
+    if (origin) {
+      try {
+        const originHost = new URL(origin).host;
+        const forwardedHost = String(req.headers["x-forwarded-host"] ?? "").split(",")[0].trim();
+        const host = forwardedHost || req.headers.host || "";
+        if (originHost !== host) {
+          return res.status(403).json({ message: "Cross-origin request blocked." });
+        }
+      } catch {
+        return res.status(403).json({ message: "Invalid origin header." });
+      }
+    }
+  }
+  next();
+});
+
 setupAuth(app);
 
 export function log(message: string, source = "express") {
@@ -67,8 +105,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Restore portfolio from backup if SQLite is empty (handles Render cold starts)
-  restoreBackupIfNeeded();
+  // Ensure the database (SQLite or Postgres) is connected and tables exist
+  // before handling any request.
+  await dbReady;
+
+  if (!usingPostgres) {
+    // Restore portfolio from backup if SQLite is empty (handles cold starts).
+    // With a durable Postgres database the data is never lost, so this
+    // best-effort file restore only runs in SQLite mode.
+    await restoreBackupIfNeeded();
+  }
 
   await registerRoutes(httpServer, app);
 

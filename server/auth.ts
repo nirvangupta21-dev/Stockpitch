@@ -1,12 +1,12 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import session from "express-session";
 import Database from "better-sqlite3";
 import { z } from "zod";
-import { db } from "./db";
-import { users, type User } from "@shared/schema";
+import { db, users, sessions } from "./db";
+import type { User } from "@shared/schema";
 
 const scrypt = promisify(scryptCallback) as (
   password: string | Buffer,
@@ -71,12 +71,14 @@ async function verifyPassword(password: string, stored: string) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-function getUserByEmail(email: string) {
-  return db.select().from(users).where(eq(users.email, normalizeEmail(email))).get();
+async function getUserByEmail(email: string) {
+  const [row] = await db.select().from(users).where(eq(users.email, normalizeEmail(email)));
+  return row;
 }
 
-function getUserById(id: string) {
-  return db.select().from(users).where(eq(users.id, id)).get();
+async function getUserById(id: string) {
+  const [row] = await db.select().from(users).where(eq(users.id, id));
+  return row;
 }
 
 /** Start a fresh session (rotates the session ID) and sign the user in. */
@@ -121,63 +123,42 @@ const rateSweeper = setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 rateSweeper.unref();
 
-// ── SQLite-backed session store (survives process restarts) ──────────────────
+// ── Database-backed session store (survives process restarts) ────────────────
 // express-session's default MemoryStore loses every session on restart and is
-// not production-safe. This store keeps sessions in a local SQLite file, so
-// logins survive restarts of the same container. (The file is still ephemeral
-// on hosts with ephemeral filesystems — set SESSION_SECRET and use a durable
-// database for anything stronger.)
-class SqliteSessionStore extends session.Store {
-  private db: Database.Database;
-
-  constructor() {
-    super();
-    this.db = new Database("sessions.db");
-    this.db.exec(`CREATE TABLE IF NOT EXISTS sessions (
-      sid TEXT PRIMARY KEY,
-      sess TEXT NOT NULL,
-      expires INTEGER NOT NULL
-    )`);
-    const sweeper = setInterval(() => {
-      try {
-        this.db.prepare("DELETE FROM sessions WHERE expires <= ?").run(Date.now());
-      } catch {}
-    }, 15 * 60 * 1000);
-    sweeper.unref();
-  }
-
+// not production-safe. This store keeps sessions in the main database
+// (SQLite locally, Postgres when DATABASE_URL is set), so logins survive
+// restarts — and with a durable Postgres they survive redeploys too.
+class DbSessionStore extends session.Store {
   get(sid: string, callback: (err: unknown, session?: session.SessionData | null) => void) {
-    try {
-      const row = this.db.prepare("SELECT sess FROM sessions WHERE sid = ? AND expires > ?").get(sid, Date.now()) as { sess: string } | undefined;
-      callback(null, row ? JSON.parse(row.sess) : null);
-    } catch (err) {
-      callback(err);
-    }
+    db.select().from(sessions)
+      .where(and(eq(sessions.sid, sid), gt(sessions.expires, Date.now())))
+      .then(rows => {
+        const row = rows[0] as { sess: string } | undefined;
+        callback(null, row ? JSON.parse(row.sess) : null);
+      })
+      .catch(err => callback(err));
   }
 
   set(sid: string, sess: session.SessionData, callback?: (err?: unknown) => void) {
-    try {
+    (async () => {
       const expires = typeof sess.cookie?.expires === "number"
         ? sess.cookie.expires
         : sess.cookie?.expires
           ? new Date(sess.cookie.expires).getTime()
           : Date.now() + 1000 * 60 * 60 * 24 * 30;
-      this.db.prepare(
-        "INSERT INTO sessions (sid, sess, expires) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires"
-      ).run(sid, JSON.stringify(sess), expires);
-      callback?.();
-    } catch (err) {
-      callback?.(err);
-    }
+      await db.insert(sessions)
+        .values({ sid, sess: JSON.stringify(sess), expires })
+        .onConflictDoUpdate({
+          target: sessions.sid,
+          set: { sess: JSON.stringify(sess), expires },
+        });
+    })().then(() => callback?.(), err => callback?.(err));
   }
 
   destroy(sid: string, callback?: (err?: unknown) => void) {
-    try {
-      this.db.prepare("DELETE FROM sessions WHERE sid = ?").run(sid);
-      callback?.();
-    } catch (err) {
-      callback?.(err);
-    }
+    db.delete(sessions).where(eq(sessions.sid, sid))
+      .then(() => callback?.())
+      .catch(err => callback?.(err));
   }
 
   touch(sid: string, sess: session.SessionData, callback?: (err?: unknown) => void) {
@@ -210,7 +191,7 @@ export function setupAuth(app: Express) {
     secret,
     resave: false,
     saveUninitialized: false,
-    store: new SqliteSessionStore(),
+    store: new DbSessionStore(),
     cookie: {
       httpOnly: true,
       sameSite: "lax",
@@ -220,16 +201,17 @@ export function setupAuth(app: Express) {
   }));
 
   app.use((req: AuthenticatedRequest, _res, next) => {
-    if (req.session.userId) {
-      const user = getUserById(req.session.userId);
-      if (user) req.user = publicUser(user);
-      else delete req.session.userId;
-    } else if (!req.session.guestId) {
-      // Give each anonymous browser its own bucket instead of a shared
-      // "guest" portfolio that anyone can read and modify.
-      req.session.guestId = `guest-${randomUUID()}`;
-    }
-    next();
+    (async () => {
+      if (req.session.userId) {
+        const user = await getUserById(req.session.userId);
+        if (user) req.user = publicUser(user);
+        else delete req.session.userId;
+      } else if (!req.session.guestId) {
+        // Give each anonymous browser its own bucket instead of a shared
+        // "guest" portfolio that anyone can read and modify.
+        req.session.guestId = `guest-${randomUUID()}`;
+      }
+    })().then(() => next(), next);
   });
 
   app.get("/api/auth/me", (req: AuthenticatedRequest, res) => {
@@ -246,18 +228,18 @@ export function setupAuth(app: Express) {
     }
 
     const email = normalizeEmail(parsed.data.email);
-    if (getUserByEmail(email)) {
+    if (await getUserByEmail(email)) {
       return res.status(409).json({ message: "An account with that email already exists." });
     }
 
     try {
-      const user = db.insert(users).values({
+      const [user] = await db.insert(users).values({
         id: randomUUID(),
         name: parsed.data.name.trim(),
         email,
         passwordHash: await hashPassword(parsed.data.password),
         createdAt: new Date().toISOString(),
-      }).returning().get();
+      }).returning();
 
       rateLimitReset(req.ip, "signup");
       sendUser(req, res, user);
@@ -276,7 +258,7 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ message: "Enter your email and password." });
     }
 
-    const user = getUserByEmail(parsed.data.email);
+    const user = await getUserByEmail(parsed.data.email);
     if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
       // Deliberately generic — do not reveal whether the email exists.
       return res.status(401).json({ message: "Email or password is incorrect." });

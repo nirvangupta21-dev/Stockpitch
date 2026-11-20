@@ -178,17 +178,34 @@ try {
     check("portfolio intact after restart", tickersOf(pf.json) === "MSFT,NVDA");
   }
 
-  section("cold start with lost filesystem (users gone, backups remain)");
-  {
-    await stopServer();
-    rmSync(path.join(WORKDIR, "stockpitch.db"), { force: true });
-    rmSync(path.join(WORKDIR, "sessions.db"), { force: true });
-    await startServer();
-    const login = await alice("POST", "/api/auth/login", { email: "alice@t.dev", password: "password123" }, PROXY);
-    check("login fails after accounts are lost", login.status === 401);
-    const anon = client();
-    const pf = await anon("GET", "/api/portfolio", null, PROXY);
-    check("no orphaned positions restored for missing users", (pf.json ?? []).length === 0);
+  if (process.env.DATABASE_URL) {
+    section("durable mode — accounts survive a lost filesystem");
+    {
+      // With a real database, deleting the local files must NOT lose accounts.
+      await stopServer();
+      rmSync(path.join(WORKDIR, "stockpitch.db"), { force: true });
+      rmSync(path.join(WORKDIR, "sessions.db"), { force: true });
+      await startServer();
+      const login = await alice("POST", "/api/auth/login", { email: "alice@t.dev", password: "password123" }, PROXY);
+      check("login still succeeds after filesystem reset", login.status === 200);
+      const me = await alice("GET", "/api/auth/me", null, PROXY);
+      check("session survives the restart", (me.json ?? {}).user?.email === "alice@t.dev");
+      const pf = await alice("GET", "/api/portfolio", null, PROXY);
+      check("portfolio intact after filesystem reset", (pf.json ?? []).length === 2);
+    }
+  } else {
+    section("cold start with lost filesystem (users gone, backups remain)");
+    {
+      await stopServer();
+      rmSync(path.join(WORKDIR, "stockpitch.db"), { force: true });
+      rmSync(path.join(WORKDIR, "sessions.db"), { force: true });
+      await startServer();
+      const login = await alice("POST", "/api/auth/login", { email: "alice@t.dev", password: "password123" }, PROXY);
+      check("login fails after accounts are lost", login.status === 401);
+      const anon = client();
+      const pf = await anon("GET", "/api/portfolio", null, PROXY);
+      check("no orphaned positions restored for missing users", (pf.json ?? []).length === 0);
+    }
   }
 } finally {
   await stopServer();

@@ -232,9 +232,9 @@ async function fetchFromAlphaVantage(ticker: string): Promise<any | null> {
 export async function registerRoutes(httpServer: Server, app: Express) {
   // Self-contained health check — does not depend on Yahoo Finance, so an
   // upstream outage never fails a deploy.
-  app.get("/api/health", (_req, res) => {
+  app.get("/api/health", async (_req, res) => {
     try {
-      db.select().from(users).limit(1).all();
+      await db.select().from(users).limit(1);
       res.json({ ok: true, db: "up" });
     } catch {
       res.status(503).json({ ok: false, db: "down" });
@@ -1164,36 +1164,36 @@ ${stockContext}` : ""}`;
   });
 
   // Watchlist routes
-  app.get("/api/watchlist", (req: AuthenticatedRequest, res) => {
-    res.json(storage.getWatchlist(accountId(req)));
+  app.get("/api/watchlist", async (req: AuthenticatedRequest, res) => {
+    res.json(await storage.getWatchlist(accountId(req)));
   });
 
-  app.post("/api/watchlist", (req: AuthenticatedRequest, res) => {
+  app.post("/api/watchlist", async (req: AuthenticatedRequest, res) => {
     const parsed = insertWatchlistSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
-    const entry = storage.addToWatchlist(accountId(req), parsed.data);
+    const entry = await storage.addToWatchlist(accountId(req), parsed.data);
     res.json(entry);
   });
 
-  app.delete("/api/watchlist/:id", (req: AuthenticatedRequest, res) => {
-    storage.removeFromWatchlist(accountId(req), parseInt(String(req.params.id), 10));
+  app.delete("/api/watchlist/:id", async (req: AuthenticatedRequest, res) => {
+    await storage.removeFromWatchlist(accountId(req), parseInt(String(req.params.id), 10));
     res.json({ success: true });
   });
 
   // Portfolio routes
-  app.get("/api/portfolio", (req: AuthenticatedRequest, res) => {
-    res.json(storage.getPortfolio(accountId(req)));
+  app.get("/api/portfolio", async (req: AuthenticatedRequest, res) => {
+    res.json(await storage.getPortfolio(accountId(req)));
   });
 
-  app.post("/api/portfolio", (req: AuthenticatedRequest, res) => {
+  app.post("/api/portfolio", async (req: AuthenticatedRequest, res) => {
     const parsed = insertPortfolioSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
-    const pos = storage.upsertPosition(accountId(req), parsed.data);
+    const pos = await storage.upsertPosition(accountId(req), parsed.data);
     res.json(pos);
   });
 
-  app.delete("/api/portfolio/:id", (req: AuthenticatedRequest, res) => {
-    storage.deletePosition(accountId(req), String(req.params.id));
+  app.delete("/api/portfolio/:id", async (req: AuthenticatedRequest, res) => {
+    await storage.deletePosition(accountId(req), String(req.params.id));
     res.json({ success: true });
   });
 }

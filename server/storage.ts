@@ -1,9 +1,5 @@
-import { db } from "./db";
-import {
-  watchlist, type InsertWatchlist, type Watchlist,
-  portfolio, type InsertPortfolio, type PortfolioPosition,
-  users,
-} from "@shared/schema";
+import { db, users, watchlist, portfolio } from "./db";
+import type { InsertWatchlist, InsertPortfolio, PortfolioPosition, Watchlist } from "@shared/schema";
 import { and, eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
@@ -36,12 +32,13 @@ function writeBackup(positions: PortfolioPosition[], userId: string): void {
   if (!wrote) console.warn("[portfolio] Could not write backup to any path");
 }
 
-export function restoreBackupIfNeeded(): void {
+export async function restoreBackupIfNeeded(): Promise<void> {
   try {
     // Re-seed each account's positions from its own backup file, but only
     // when that account still exists and currently has no positions. This
     // avoids seeding orphaned rows for accounts that no longer exist.
-    const existingUserIds = new Set(db.select({ id: users.id }).from(users).all().map(u => u.id));
+    const allUsers = await db.select({ id: users.id }).from(users);
+    const existingUserIds = new Set(allUsers.map(u => u.id));
     for (const dir of BACKUP_DIRS) {
       let files: string[] = [];
       try {
@@ -54,14 +51,14 @@ export function restoreBackupIfNeeded(): void {
           const parsed = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as BackupFile;
           if (!parsed?.userId || !Array.isArray(parsed.positions)) continue;
           if (!existingUserIds.has(parsed.userId)) continue;
-          const current = db.select().from(portfolio).where(eq(portfolio.userId, parsed.userId)).all();
+          const current = await db.select().from(portfolio).where(eq(portfolio.userId, parsed.userId));
           if (current.length > 0) continue;
           if (parsed.positions.length === 0) continue;
           for (const pos of parsed.positions) {
-            db.insert(portfolio).values({ ...pos, userId: parsed.userId }).onConflictDoUpdate({
+            await db.insert(portfolio).values({ ...pos, userId: parsed.userId }).onConflictDoUpdate({
               target: portfolio.id,
               set: { ticker: pos.ticker, name: pos.name, shares: pos.shares, avgCost: pos.avgCost, purchaseDate: pos.purchaseDate, notes: pos.notes },
-            }).run();
+            });
           }
           console.log(`[portfolio] Restored ${parsed.positions.length} positions for ${parsed.userId} from ${file}`);
         } catch {}
@@ -74,43 +71,44 @@ export function restoreBackupIfNeeded(): void {
 
 export interface IStorage {
   // Watchlist
-  getWatchlist(userId: string): Watchlist[];
-  addToWatchlist(userId: string, entry: InsertWatchlist): Watchlist;
-  removeFromWatchlist(userId: string, id: number): void;
+  getWatchlist(userId: string): Promise<Watchlist[]>;
+  addToWatchlist(userId: string, entry: InsertWatchlist): Promise<Watchlist>;
+  removeFromWatchlist(userId: string, id: number): Promise<void>;
 
   // Portfolio
-  getPortfolio(userId: string): PortfolioPosition[];
-  upsertPosition(userId: string, pos: InsertPortfolio): PortfolioPosition;
-  deletePosition(userId: string, id: string): void;
+  getPortfolio(userId: string): Promise<PortfolioPosition[]>;
+  upsertPosition(userId: string, pos: InsertPortfolio): Promise<PortfolioPosition>;
+  deletePosition(userId: string, id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
   // ── Watchlist ──────────────────────────────────────────────────────────────
-  getWatchlist(userId: string): Watchlist[] {
-    return db.select().from(watchlist).where(eq(watchlist.userId, userId)).all();
+  async getWatchlist(userId: string): Promise<Watchlist[]> {
+    return db.select().from(watchlist).where(eq(watchlist.userId, userId));
   }
-  addToWatchlist(userId: string, entry: InsertWatchlist): Watchlist {
-    return db.insert(watchlist).values({ ...entry, userId }).returning().get();
+  async addToWatchlist(userId: string, entry: InsertWatchlist): Promise<Watchlist> {
+    const [row] = await db.insert(watchlist).values({ ...entry, userId }).returning();
+    return row;
   }
-  removeFromWatchlist(userId: string, id: number): void {
-    db.delete(watchlist).where(and(eq(watchlist.id, id), eq(watchlist.userId, userId))).run();
+  async removeFromWatchlist(userId: string, id: number): Promise<void> {
+    await db.delete(watchlist).where(and(eq(watchlist.id, id), eq(watchlist.userId, userId)));
   }
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
-  getPortfolio(userId: string): PortfolioPosition[] {
-    return db.select().from(portfolio).where(eq(portfolio.userId, userId)).all();
+  async getPortfolio(userId: string): Promise<PortfolioPosition[]> {
+    return db.select().from(portfolio).where(eq(portfolio.userId, userId));
   }
 
-  upsertPosition(userId: string, pos: InsertPortfolio): PortfolioPosition {
+  async upsertPosition(userId: string, pos: InsertPortfolio): Promise<PortfolioPosition> {
     // Ownership check: a client-supplied id that already belongs to a different
     // account must never overwrite or reassign that row.
-    const existing = db.select().from(portfolio).where(eq(portfolio.id, pos.id)).get();
+    const [existing] = await db.select().from(portfolio).where(eq(portfolio.id, pos.id));
     if (existing && existing.userId !== userId) {
       const err = new Error("That position belongs to another account.") as Error & { status?: number };
       err.status = 403;
       throw err;
     }
-    const result = db
+    const [result] = await db
       .insert(portfolio)
       .values({ ...pos, userId })
       .onConflictDoUpdate({
@@ -125,17 +123,16 @@ export class DatabaseStorage implements IStorage {
           notes:        pos.notes,
         },
       })
-      .returning()
-      .get();
+      .returning();
     // Write backup after every change
-    writeBackup(this.getPortfolio(userId), userId);
+    writeBackup(await this.getPortfolio(userId), userId);
     return result;
   }
 
-  deletePosition(userId: string, id: string): void {
-    db.delete(portfolio).where(and(eq(portfolio.id, id), eq(portfolio.userId, userId))).run();
+  async deletePosition(userId: string, id: string): Promise<void> {
+    await db.delete(portfolio).where(and(eq(portfolio.id, id), eq(portfolio.userId, userId)));
     // Write backup after every change
-    writeBackup(this.getPortfolio(userId), userId);
+    writeBackup(await this.getPortfolio(userId), userId);
   }
 }
 
