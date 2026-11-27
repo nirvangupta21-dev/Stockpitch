@@ -9,6 +9,7 @@ import MetricsBar from "@/components/MetricsBar";
 import MarketOverview, { SectorPerformance3D } from "@/components/MarketOverview";
 import TopMoversLanding from "@/components/TopMoversLanding";
 import EtfHoldings from "@/components/EtfHoldings";
+import PopularFunds from "@/components/PopularFunds";
 
 export interface QuoteData {
   ticker: string;
@@ -65,10 +66,11 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
             Markets at a Glance
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Click any stock for full analysis — price history, investment simulator, and fair value models.
+            Click any stock or fund for full analysis — price history, investment simulator, and fair value models.
           </p>
         </div>
         <MarketOverview />
+        <PopularFunds onSelectTicker={onTickerChange} />
         {/* Bento row: movers panel + 3D sector performance */}
         <div className="grid lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-7">
