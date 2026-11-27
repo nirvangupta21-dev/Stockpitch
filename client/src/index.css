@@ -5,38 +5,38 @@
 @layer base {
   :root {
     /* ── AURORA GLASS theme: deep indigo, ambient orbs, glass panels ── */
-    --background: 235 32% 7%;
-    --foreground: 235 30% 96%;
+    --background: 240 16% 5%;
+    --foreground: 60 14% 94%;
 
-    --card: 235 26% 11%;
-    --card-foreground: 235 30% 96%;
+    --card: 240 14% 9%;
+    --card-foreground: 60 14% 94%;
 
-    --popover: 235 28% 10%;
-    --popover-foreground: 235 30% 96%;
+    --popover: 240 14% 8%;
+    --popover-foreground: 60 14% 94%;
 
-    --primary: 245 80% 68%;
-    --primary-foreground: 235 40% 8%;
+    --primary: 74 100% 60%;
+    --primary-foreground: 240 20% 6%;
 
-    --secondary: 235 22% 15%;
-    --secondary-foreground: 235 20% 88%;
+    --secondary: 240 10% 14%;
+    --secondary-foreground: 60 10% 88%;
 
-    --muted: 235 22% 14%;
-    --muted-foreground: 235 12% 68%;
+    --muted: 240 10% 13%;
+    --muted-foreground: 240 6% 66%;
 
     --accent: 190 95% 55%;
-    --accent-foreground: 235 40% 8%;
+    --accent-foreground: 240 20% 6%;
 
     --destructive: 352 82% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 235 20% 20%;
-    --input: 235 22% 16%;
-    --ring: 245 80% 68%;
+    --border: 60 6% 32%;
+    --input: 240 10% 15%;
+    --ring: 74 100% 60%;
 
-    --radius: 0.75rem;
+    --radius: 0.25rem;
 
     /* ── Data visualization colors (vivid, varied) ── */
-    --color-up: 152 60% 45%;
+    --color-up: 150 85% 50%;
     --color-down: 352 82% 60%;
     --color-cyan: 190 95% 55%;
     --color-violet: 258 85% 66%;
@@ -45,38 +45,38 @@
     --color-rose: 330 85% 65%;
 
     /* ── Surface tokens ── */
-    --color-surface-1: 235 26% 11%;
-    --color-surface-2: 235 22% 14%;
-    --color-surface-3: 235 20% 18%;
-    --color-border: 235 20% 20%;
-    --color-text: 235 30% 96%;
-    --color-text-muted: 235 12% 68%;
-    --color-text-faint: 235 10% 42%;
+    --color-surface-1: 240 14% 9%;
+    --color-surface-2: 240 10% 13%;
+    --color-surface-3: 240 8% 18%;
+    --color-border: 60 6% 32%;
+    --color-text: 60 14% 94%;
+    --color-text-muted: 240 6% 66%;
+    --color-text-faint: 240 5% 46%;
 
-    --font-display: 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-display: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-body: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', 'SFMono-Regular', monospace;
   }
 
   /* ── Light mode: soft pastel aurora ── */
   .light {
-    --background: 235 60% 97%;
-    --foreground: 235 35% 12%;
+    --background: 48 33% 94%;
+    --foreground: 240 25% 7%;
 
     --card: 0 0% 100%;
-    --card-foreground: 235 35% 12%;
+    --card-foreground: 240 25% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 235 35% 12%;
+    --popover-foreground: 240 25% 7%;
 
     --primary: 248 75% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 235 45% 93%;
-    --secondary-foreground: 235 30% 25%;
+    --secondary: 48 25% 89%;
+    --secondary-foreground: 240 20% 18%;
 
-    --muted: 235 45% 93%;
-    --muted-foreground: 235 15% 42%;
+    --muted: 48 25% 89%;
+    --muted-foreground: 240 8% 36%;
 
     --accent: 195 90% 42%;
     --accent-foreground: 0 0% 100%;
@@ -84,16 +84,16 @@
     --destructive: 352 75% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 235 35% 86%;
-    --input: 235 40% 92%;
+    --border: 240 25% 12%;
+    --input: 48 25% 90%;
     --ring: 248 75% 58%;
 
     --color-surface-1: 0 0% 100%;
-    --color-surface-2: 235 45% 95%;
-    --color-surface-3: 235 35% 90%;
-    --color-border: 235 35% 86%;
-    --color-text: 235 35% 12%;
-    --color-text-muted: 235 15% 42%;
+    --color-surface-2: 48 28% 91%;
+    --color-surface-3: 48 22% 86%;
+    --color-border: 240 25% 12%;
+    --color-text: 240 25% 7%;
+    --color-text-muted: 240 8% 36%;
     --color-text-faint: 235 12% 60%;
   }
 }
@@ -118,10 +118,10 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(36rem 36rem at 12% -8%, hsl(248 80% 60% / 0.22), transparent 60%),
-      radial-gradient(30rem 30rem at 88% 12%, hsl(195 90% 55% / 0.14), transparent 60%),
-      radial-gradient(34rem 34rem at 72% 88%, hsl(258 80% 62% / 0.16), transparent 60%),
-      radial-gradient(26rem 26rem at 20% 92%, hsl(330 80% 62% / 0.10), transparent 60%);
+      radial-gradient(36rem 36rem at 12% -8%, hsl(258 90% 62% / 0.34), transparent 60%),
+      radial-gradient(30rem 30rem at 88% 12%, hsl(190 95% 55% / 0.22), transparent 60%),
+      radial-gradient(34rem 34rem at 72% 88%, hsl(280 85% 60% / 0.24), transparent 60%),
+      radial-gradient(26rem 26rem at 20% 92%, hsl(330 85% 60% / 0.16), transparent 60%);
   }
   html.light body::before {
     background:
@@ -130,77 +130,109 @@
       radial-gradient(34rem 34rem at 72% 88%, hsl(258 85% 82% / 0.45), transparent 60%),
       radial-gradient(26rem 26rem at 20% 92%, hsl(330 85% 86% / 0.4), transparent 60%);
   }
+  /* Blueprint grid over the aurora: the brutalist layer */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,0.35) 70%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,0.35) 70%, transparent 100%);
+  }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
   }
 }
 
 @layer components {
-  /* ── Glass surfaces ─────────────────────────────────────────────── */
-  /* Primary glass treatment: sidebar, top bar, drawer, hero panels.
-     Blur is limited to these few surfaces for performance. */
+  /* ── Brutal glass surfaces ──────────────────────────────────────── */
+  /* Translucent aurora glass, held in a hard 2px frame. Blur stays limited
+     to the sidebar / top bar / drawer / hero panel for performance. */
   .glass-panel {
     position: relative;
-    background: linear-gradient(165deg, hsl(0 0% 100% / 0.09), hsl(0 0% 100% / 0.035));
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid hsl(0 0% 100% / 0.13);
-    border-radius: 1rem;
-    box-shadow: 0 8px 32px hsl(235 45% 4% / 0.45), inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    background: linear-gradient(165deg, hsl(0 0% 100% / 0.10), hsl(0 0% 100% / 0.03));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 2px solid hsl(var(--foreground) / 0.85);
+    border-radius: var(--radius);
+    box-shadow: none;
   }
   .light .glass-panel {
-    background: linear-gradient(165deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.6));
-    border-color: hsl(235 40% 88% / 0.9);
-    box-shadow: 0 8px 32px hsl(235 40% 55% / 0.14), inset 0 1px 0 hsl(0 0% 100% / 0.9);
+    background: linear-gradient(165deg, hsl(0 0% 100% / 0.78), hsl(48 40% 96% / 0.6));
+    border-color: hsl(var(--foreground));
   }
+  /* Hero-level panels get the hard offset shadow */
+  .glass-panel.card-lift { box-shadow: 8px 8px 0 hsl(var(--primary)); }
 
-  /* Everyday cards get cheap glass (alpha, no blur) so scroll stays smooth */
+  /* Everyday cards: cheap glass (alpha, no blur) + hard frame + offset */
   .bg-card {
-    background-color: hsl(var(--card) / 0.62);
-    background-image: linear-gradient(165deg, hsl(0 0% 100% / 0.045), transparent 42%);
+    background-color: hsl(var(--card) / 0.66);
+    background-image: linear-gradient(165deg, hsl(0 0% 100% / 0.05), transparent 45%);
+    border-width: 1.5px;
+    border-color: hsl(var(--foreground) / 0.5);
+    box-shadow: 4px 4px 0 hsl(var(--foreground) / 0.18);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .bg-card:hover {
+    border-color: hsl(var(--foreground) / 0.7);
+    box-shadow: 6px 6px 0 hsl(var(--primary) / 0.9);
+    transform: translate(-2px, -2px);
   }
   .light .bg-card {
-    background-color: hsl(0 0% 100% / 0.62);
-    background-image: linear-gradient(165deg, hsl(0 0% 100% / 0.6), transparent 42%);
+    background-color: hsl(0 0% 100% / 0.7);
+    background-image: none;
+    border-color: hsl(var(--foreground));
+    box-shadow: 4px 4px 0 hsl(var(--foreground));
+  }
+  .light .bg-card:hover { box-shadow: 6px 6px 0 hsl(var(--primary)); }
+
+  /* Square off Tailwind's rounded steps; keep pills and avatars round */
+  .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl {
+    border-radius: var(--radius);
   }
 
-  /* ── Depth & 3D ─────────────────────────────────────────────────── */
+  /* ── Depth ──────────────────────────────────────────────────────── */
   .card-lift {
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
-    will-change: transform;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
   .card-lift:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 40px hsl(235 45% 4% / 0.5);
+    transform: translate(-3px, -3px);
+    box-shadow: 10px 10px 0 hsl(var(--primary));
   }
-  .tilt {
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: transform;
-  }
-  .tilt:hover {
-    transform: perspective(900px) rotateX(5deg) rotateY(-5deg) translateY(-4px);
-  }
+  .tilt { transition: transform 0.2s ease; }
+  .tilt:hover { transform: translate(-3px, -3px); }
   @media (prefers-reduced-motion: reduce) {
-    .tilt:hover, .card-lift:hover { transform: none; }
-    body::before { filter: none; }
+    .tilt:hover, .card-lift:hover, .bg-card:hover { transform: none; }
   }
 
-  /* Gradient accent fill for active nav / primary moments */
+  /* Primary fill: solid volt block with ink text and a hard shadow */
   .accent-gradient {
-    background-image: linear-gradient(135deg, hsl(245 80% 66%), hsl(200 90% 55%));
+    background-image: none;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground)) !important;
+    border: 2px solid hsl(240 20% 6%);
+    border-radius: var(--radius) !important;
+    box-shadow: 3px 3px 0 hsl(var(--foreground) / 0.9) !important;
+    font-weight: 700;
   }
   .text-gradient {
-    background-image: linear-gradient(135deg, hsl(250 85% 72%), hsl(195 90% 60%));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    background-image: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: hsl(var(--primary));
   }
 }
 
 /* Accent colors (user-selectable) */
+[data-accent="volt"]   { --accent-h: 74;  --accent-s: 100%; --accent-l: 60%; }
 [data-accent="iris"]   { --accent-h: 248; --accent-s: 80%; --accent-l: 68%; }
 [data-accent="cyan"]   { --accent-h: 190; --accent-s: 95%; --accent-l: 55%; }
 [data-accent="violet"] { --accent-h: 258; --accent-s: 85%; --accent-l: 66%; }
@@ -211,6 +243,8 @@
 [data-accent] {
   --primary: var(--accent-h) var(--accent-s) var(--accent-l);
 }
+.light[data-accent="volt"],
+.light [data-accent="volt"] { --primary: 252 85% 52%; --primary-foreground: 0 0% 100%; }
 .light[data-accent="iris"],
 .light [data-accent="iris"] { --primary: 248 75% 58%; }
 .light [data-accent="cyan"] { --primary: 195 90% 42%; }
@@ -234,11 +268,11 @@
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(235 20% 24%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(245 60% 55% / 0.6); }
+::-webkit-scrollbar-thumb { background: hsl(var(--foreground) / 0.3); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
 
 /* Tabular nums */
-.tabular-nums { font-variant-numeric: tabular-nums lining-nums; }
+.tabular-nums { font-variant-numeric: tabular-nums lining-nums; font-family: var(--font-mono); letter-spacing: -0.02em; }
 
 /* Skeleton shimmer */
 @keyframes shimmer {
@@ -275,3 +309,4 @@
   width: max-content;
 }
 .ticker-tape:hover { animation-play-state: paused; }
+.ticker-tape { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.02em; }

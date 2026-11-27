@@ -61,7 +61,7 @@ export default function Dashboard({ ticker, onTickerChange }: Props) {
       <div className="space-y-8">
         {/* Page header — one clear anchor for the page */}
         <div>
-          <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
+          <h1 className="text-4xl font-bold uppercase tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
             Markets at a Glance
           </h1>
           <p className="text-sm text-muted-foreground mt-1">

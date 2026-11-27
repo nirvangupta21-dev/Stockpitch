@@ -104,8 +104,8 @@ function HeroIndexCard({ item }: { item: MarketItem }) {
   const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, group: "US" as RegionGroup };
   return (
     <div
-      className={`rounded-2xl border p-5 bg-card card-lift flex flex-col gap-3 ${
-        up ? "border-up/25" : "border-down/25"
+      className={`rounded-2xl border border-l-[6px] p-5 bg-card card-lift flex flex-col gap-3 ${
+        up ? "border-l-[hsl(var(--color-up))]" : "border-l-[hsl(var(--color-down))]"
       }`}
       data-testid={`hero-index-${item.symbol}`}
     >
@@ -113,14 +113,14 @@ function HeroIndexCard({ item }: { item: MarketItem }) {
         <div className="flex items-center gap-2 min-w-0">
           <p className="text-sm font-semibold truncate min-w-0" style={{ fontFamily: "var(--font-display)" }}>{meta.label}</p>
         </div>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-          up ? "bg-up/15 text-up" : "bg-down/15 text-down"
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-none tabular-nums ${
+          up ? "bg-[hsl(var(--color-up))] text-black" : "bg-[hsl(var(--color-down))] text-black"
         }`}>
           {fmtPct(item.changePct)}
         </span>
       </div>
       <div className="flex items-end justify-between gap-3">
-        <p className="text-2xl font-bold tabular-nums tracking-tight min-w-0 truncate" style={{ fontFamily: "var(--font-display)" }}>
+        <p className="text-3xl font-bold tabular-nums tracking-tight min-w-0 truncate">
           {fmtPrice(item.price)}
         </p>
         <div className="shrink-0"><Spark data={item.spark} up={up} width={72} /></div>
@@ -134,8 +134,8 @@ function IndexCard({ item }: { item: MarketItem }) {
   const up = item.changePct >= 0;
   const meta = INDEX_LABELS[item.symbol] ?? { label: item.name, ticker: item.symbol, group: "US" as RegionGroup };
   return (
-    <div className={`rounded-2xl border p-4 bg-card card-lift flex flex-col gap-2 ${
-      up ? "border-up/20 hover:border-up/40" : "border-down/20 hover:border-down/40"
+    <div className={`rounded-2xl border border-t-[4px] p-4 bg-card card-lift flex flex-col gap-2 ${
+      up ? "border-t-[hsl(var(--color-up))]" : "border-t-[hsl(var(--color-down))]"
     }`}>
       <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{GROUP_LABELS[meta.group]}</p>
       <div className="flex items-start justify-between">
